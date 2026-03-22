@@ -1899,7 +1899,7 @@ function renderCategories() {
   // Category breakdown
   h+=`<div class="card"><div class="card-title" style="margin-bottom:20px">Répartition par catégorie</div>
     <table style="width:100%;border-collapse:collapse;font-size:14px">
-    <thead><tr><th style="text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)">Catégorie</th><th style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)">Samedi</th><th style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)">Dimanche</th><th style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)">Total</th><th style="text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)">Remplissage</th></tr></thead><tbody>`;
+    <thead><tr><th style="text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)">Catégorie</th><th style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)">Samedi</th><th style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)">Dimanche</th><th style="text-align:left;padding:12px 16px;border-bottom:1px solid var(--border)">Remplissage</th></tr></thead><tbody>`;
 
   const allCats=[...CATS];
   if(data['Autre']&&data['Autre'].total>0) allCats.push('Autre');
@@ -1916,7 +1916,6 @@ function renderCategories() {
       <td style="padding:12px 16px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:10px"><div style="width:14px;height:14px;border-radius:3px;background:${color}"></div><strong>${cat}</strong></div><div style="font-size:11px;color:var(--text-muted);margin-top:2px">${cap} places/jour</div></td>
       <td style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span style="font-family:Rajdhani;font-weight:700;font-size:20px;color:${samColor}">${d.samedi}</span><span style="color:var(--text-muted);font-size:13px">/${cap}</span>${d.drSamedi?'<div style="font-size:11px;color:var(--info)">dont '+d.drSamedi+' DR</div>':''}${d.samedi>=cap?'<div style="font-size:11px;color:var(--accent);font-weight:600">COMPLET</div>':d.samedi>=cap-5?'<div style="font-size:11px;color:var(--warning);font-weight:600">'+String(cap-d.samedi)+' place(s)</div>':''}</td>
       <td style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border)"><span style="font-family:Rajdhani;font-weight:700;font-size:20px;color:${dimColor}">${d.dimanche}</span><span style="color:var(--text-muted);font-size:13px">/${cap}</span>${d.drDimanche?'<div style="font-size:11px;color:var(--info)">dont '+d.drDimanche+' DR</div>':''}${d.dimanche>=cap?'<div style="font-size:11px;color:var(--accent);font-weight:600">COMPLET</div>':d.dimanche>=cap-5?'<div style="font-size:11px;color:var(--warning);font-weight:600">'+String(cap-d.dimanche)+' place(s)</div>':''}</td>
-      <td style="text-align:center;padding:12px 16px;border-bottom:1px solid var(--border);font-family:Rajdhani;font-weight:700;font-size:20px">${d.total}</td>
       <td style="padding:12px 16px;border-bottom:1px solid var(--border)"><div style="display:flex;gap:6px;flex-direction:column"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text-muted);width:28px">Sam</span><div style="flex:1;height:8px;background:var(--bg-input);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(samPct,100)}%;background:${samColor};border-radius:4px"></div></div><span style="font-size:11px;min-width:36px;text-align:right;color:${samColor}">${samPct}%</span></div><div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:var(--text-muted);width:28px">Dim</span><div style="flex:1;height:8px;background:var(--bg-input);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(dimPct,100)}%;background:${dimColor};border-radius:4px"></div></div><span style="font-size:11px;min-width:36px;text-align:right;color:${dimColor}">${dimPct}%</span></div></div></td>
     </tr>`;
   });
@@ -1926,7 +1925,6 @@ function renderCategories() {
     <td style="padding:12px 16px">TOTAL</td>
     <td style="text-align:center;padding:12px 16px;font-family:Rajdhani;font-weight:700;font-size:20px">${totalSam}<span style="color:var(--text-muted);font-size:13px">/${totalCap}</span></td>
     <td style="text-align:center;padding:12px 16px;font-family:Rajdhani;font-weight:700;font-size:20px">${totalDim}<span style="color:var(--text-muted);font-size:13px">/${totalCap}</span></td>
-    <td style="text-align:center;padding:12px 16px;font-family:Rajdhani;font-weight:700;font-size:20px">${totalAll}</td>
     <td style="padding:12px 16px"></td>
   </tr>`;
   h+=`</tbody></table></div>`;
