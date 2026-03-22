@@ -721,6 +721,32 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;position:relative;z-index:1000">
+  <div style="width:100%;max-width:420px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div class="logo" style="justify-content:center;font-size:36px;margin-bottom:8px"><div class="logo-icon" style="width:48px;height:48px;font-size:24px">🏁</div> PITSIGN</div>
+      <p style="color:var(--text-secondary);font-size:14px">Dashboard Organisateur — Connexion requise</p>
+    </div>
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px">
+      <div class="form-group">
+        <label class="form-label">Adresse email</label>
+        <input type="email" class="input" id="login-email" placeholder="votre@email.com" autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <input type="password" class="input" id="login-password" placeholder="••••••••">
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="doLogin()" style="width:100%;margin-top:8px" id="login-btn">🔐 Se connecter</button>
+      <p id="login-error" style="text-align:center;font-size:13px;margin-top:12px;color:var(--accent)"></p>
+    </div>
+    <p style="text-align:center;color:var(--text-muted);font-size:12px;margin-top:16px">Accès réservé aux organisateurs Team MRL</p>
+  </div>
+</div>
+
+<!-- APP (hidden until logged in) -->
+<div id="app-wrapper" style="display:none">
+
 <div class="mobile-header">
   <button class="hamburger" onclick="toggleSidebar()">☰</button>
   <div class="logo"><div class="logo-icon">🏁</div> PITSIGN</div>
@@ -740,7 +766,11 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="nav-item" data-page="double" onclick="showPage('double')"><span class="nav-icon">🔄</span> Double Roulage</div>
       <div class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span> Paramètres</div>
     </nav>
-    <div class="sidebar-footer">PitSign v4.0 — <span class="realtime-dot"></span>Supabase Live</div>
+    <div class="sidebar-footer">
+      PitSign v4.0 — <span class="realtime-dot"></span>Supabase Live
+      <div style="margin-top:8px"><span id="logged-user" style="font-size:11px;color:var(--text-secondary)"></span></div>
+      <div style="margin-top:6px;cursor:pointer;color:var(--accent)" onclick="doLogout()">🚪 Déconnexion</div>
+    </div>
   </aside>
 
   <main class="main">
@@ -994,6 +1024,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <div class="success-text" id="success-name"></div>
   <div style="color:var(--text-secondary);font-size:16px" id="success-detail"></div>
 </div>
+
+</div><!-- /app-wrapper -->
 
 <script>
 const SB_URL = "https://pnmkbuygzsvsuedoxbwf.supabase.co";
@@ -2000,21 +2032,149 @@ function startRealtime() {
   } catch(e){ setTimeout(startRealtime,5000); }
 }
 
-// === INIT ===
-async function boot() {
+// === AUTH ===
+let authToken = null;
+
+function getSession() {
+  try {
+    const raw = localStorage.getItem('pitsign_session');
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    // Check expiry
+    if (session.expires_at && session.expires_at * 1000 < Date.now()) {
+      localStorage.removeItem('pitsign_session');
+      return null;
+    }
+    return session;
+  } catch { return null; }
+}
+
+function saveSession(session) {
+  localStorage.setItem('pitsign_session', JSON.stringify(session));
+}
+
+function clearSession() {
+  localStorage.removeItem('pitsign_session');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  if (!email || !password) { errEl.textContent = 'Remplissez tous les champs.'; return; }
+
+  btn.textContent = '⏳ Connexion...';
+  btn.disabled = true;
+  errEl.textContent = '';
+
+  try {
+    const res = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error_description || err.msg || 'Identifiants incorrects');
+    }
+
+    const data = await res.json();
+    authToken = data.access_token;
+    saveSession({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at,
+      user: data.user
+    });
+
+    showApp(data.user);
+  } catch (err) {
+    errEl.textContent = err.message;
+    btn.textContent = '🔐 Se connecter';
+    btn.disabled = false;
+  }
+}
+
+async function refreshSession(session) {
+  try {
+    const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refresh_token })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const newSession = {
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      expires_at: data.expires_at,
+      user: data.user
+    };
+    saveSession(newSession);
+    return newSession;
+  } catch { return null; }
+}
+
+function doLogout() {
+  clearSession();
+  authToken = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-wrapper').style.display = 'none';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-btn').textContent = '🔐 Se connecter';
+  document.getElementById('login-btn').disabled = false;
+}
+
+async function showApp(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-wrapper').style.display = 'block';
+  const userEl = document.getElementById('logged-user');
+  if (userEl) userEl.textContent = user?.email || '';
+
   try {
     await loadAll();
     showPage('dashboard');
     startRealtime();
-    // Refresh every 30s as backup
-    setInterval(async()=>{
+    setInterval(async () => {
       await loadAll();
-      const cp=document.querySelector('.nav-item.active')?.dataset.page;
-      if(cp==='dashboard')renderDashboard();
-    },30000);
-  } catch(err) {
-    document.querySelector('.main').innerHTML=`<div style="padding:60px;text-align:center"><h2 style="color:var(--accent)">❌ Erreur connexion Supabase</h2><p style="color:var(--text-secondary);margin-top:16px">${err.message}</p></div>`;
+      const cp = document.querySelector('.nav-item.active')?.dataset.page;
+      if (cp === 'dashboard') renderDashboard();
+    }, 30000);
+  } catch (err) {
+    document.querySelector('.main').innerHTML = `<div style="padding:60px;text-align:center"><h2 style="color:var(--accent)">❌ Erreur connexion Supabase</h2><p style="color:var(--text-secondary);margin-top:16px">${err.message}</p></div>`;
   }
+}
+
+// === INIT ===
+async function boot() {
+  // Allow Enter key on login form
+  document.getElementById('login-password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('login-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('login-password').focus(); });
+
+  // Check existing session
+  const session = getSession();
+  if (session && session.access_token) {
+    authToken = session.access_token;
+    // Try to refresh if close to expiry (within 5 min)
+    if (session.expires_at && session.expires_at * 1000 - Date.now() < 300000) {
+      const refreshed = await refreshSession(session);
+      if (refreshed) {
+        authToken = refreshed.access_token;
+        showApp(refreshed.user);
+        return;
+      }
+      // Refresh failed, show login
+      clearSession();
+      return;
+    }
+    showApp(session.user);
+  }
+  // else: login screen is already visible
 }
 boot();
 </script>
