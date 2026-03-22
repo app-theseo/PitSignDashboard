@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>PitSign Dashboard — Organisateur</title>
+<meta name="application-name" content="PitSign">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PitSign">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='15' fill='%23e63946'/><text x='50' y='68' text-anchor='middle' font-size='50' font-family='sans-serif' font-weight='bold' fill='white'>🏁</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='15' fill='%23e63946'/><text x='50' y='68' text-anchor='middle' font-size='50' font-family='sans-serif' font-weight='bold' fill='white'>🏁</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -837,7 +845,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div class="card-title">⚙️ Configuration</div>
         <div class="form-group">
           <label class="form-label">URL du formulaire pilote</label>
-          <input type="text" class="input" id="form-base-url" placeholder="https://votresite.com/pilote.html" value="">
+          <input type="text" class="input" id="form-base-url" placeholder="https://app-theseo.github.io/PitSign/PitSign_Pilote_Form.html" value="https://app-theseo.github.io/PitSign/PitSign_Pilote_Form.html">
           <small style="color:var(--text-muted);font-size:12px;margin-top:4px;display:block">L'URL où vous avez hébergé le fichier PitSign_Pilote_Form.html (GitHub Pages, Netlify, etc.)</small>
         </div>
         <button class="btn btn-primary" onclick="saveFormUrl()" style="margin-top:8px">💾 Enregistrer</button>
@@ -1028,6 +1036,40 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </div><!-- /app-wrapper -->
 
 <script>
+// === PWA SETUP ===
+(function setupPWA() {
+  // Inline manifest
+  const manifest = {
+    name: 'PitSign Dashboard',
+    short_name: 'PitSign',
+    description: 'Dashboard organisateur — Check-in & Signature Pilotes',
+    start_url: location.href.split('?')[0],
+    display: 'standalone',
+    background_color: '#0a0a0c',
+    theme_color: '#0a0a0c',
+    orientation: 'any',
+    icons: [
+      { src: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="80" fill="%23e63946"/><text x="256" y="340" text-anchor="middle" font-size="280" font-family="sans-serif">🏁</text></svg>', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+
+  // Service worker for installability
+  if ('serviceWorker' in navigator) {
+    // Try registering real sw.js first (must be hosted alongside the HTML)
+    navigator.serviceWorker.register('sw.js').catch(() => {
+      // Fallback: inline blob SW
+      const swCode = `self.addEventListener('install',e=>{self.skipWaiting()});self.addEventListener('activate',e=>{e.waitUntil(clients.claim())});self.addEventListener('fetch',e=>{e.respondWith(fetch(e.request).catch(()=>new Response('Offline',{status:503})))});`;
+      const swBlob = new Blob([swCode], { type: 'application/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+    });
+  }
+})();
+
 const SB_URL = "https://pnmkbuygzsvsuedoxbwf.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBubWtidXlnenN2c3VlZG94YndmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwOTcwNjksImV4cCI6MjA4OTY3MzA2OX0.nOpLz7vpA_fs5EWsixLppUbxkwomtxh74jo0PBkXknA";
 const DOCS = [
@@ -1412,7 +1454,7 @@ async function deletePilot(pid) {
 }
 
 // === EMAILS ===
-function getFormUrl() { return localStorage.getItem('pitsign_form_url')||''; }
+function getFormUrl() { return localStorage.getItem('pitsign_form_url')||'https://app-theseo.github.io/PitSign/PitSign_Pilote_Form.html'; }
 function saveFormUrl() { localStorage.setItem('pitsign_form_url',document.getElementById('form-base-url').value.trim()); alert('URL sauvegardée !'); renderEmails(); }
 
 function renderEmails() {
