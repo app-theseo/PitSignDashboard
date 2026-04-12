@@ -1121,6 +1121,18 @@ async function loadAll() {
 function pilotSigs(p) { return allSigs[p.id] || {}; }
 function pilotSignedCount(p) { return DOCS.filter(d => pilotSigs(p)[d.id]).length; }
 function pilotInfoComplete(p) { return !!(p.date_naissance && p.adresse && p.vehicule && p.num_permis && p.tel_urgence); }
+function pilotCatForDay(p, day) {
+  if(day==='samedi'&&p.category_sam) return normalizeCat(p.category_sam);
+  if(day==='dimanche'&&p.category_dim) return normalizeCat(p.category_dim);
+  return normalizeCat(p.category);
+}
+function pilotCatDisplay(p) {
+  const days=p.days||[];
+  const catSam=days.includes('samedi')?pilotCatForDay(p,'samedi'):null;
+  const catDim=days.includes('dimanche')?pilotCatForDay(p,'dimanche'):null;
+  if(catSam&&catDim&&catSam!==catDim) return `Sam: ${catSam} / Dim: ${catDim}`;
+  return catSam||catDim||normalizeCat(p.category);
+}
 
 // === NAV ===
 function showPage(n) {
@@ -1188,7 +1200,7 @@ function renderDashboard() {
   });
   document.getElementById('nc-body').innerHTML=nc.length?nc.map(p=>{
     const sc=pilotSignedCount(p);
-    return `<tr><td><span style="font-family:Rajdhani;font-weight:700;font-size:18px">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td>${p.category||'—'}</td><td><span class="badge ${sc===0?'badge-danger':sc===DOCS.length?'badge-success':'badge-warning'}">${sc}/${DOCS.length}</span></td><td><button class="btn btn-sm btn-primary" onclick="showDetail('${p.id}')">👁</button></td></tr>`;
+    return `<tr><td><span style="font-family:Rajdhani;font-weight:700;font-size:18px">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td>${pilotCatDisplay(p)}</td><td><span class="badge ${sc===0?'badge-danger':sc===DOCS.length?'badge-success':'badge-warning'}">${sc}/${DOCS.length}</span></td><td><button class="btn btn-sm btn-primary" onclick="showDetail('${p.id}')">👁</button></td></tr>`;
   }).join(''):`<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px">${total?'✅ Tous en règle !':'Aucun pilote'}</td></tr>`;
 }
 
@@ -1206,7 +1218,7 @@ function searchPilots() {
     const isCI=day==='samedi'?p.checked_in_sam:p.checked_in_dim;
     const needsPay=p.payment_method==='espece'&&!p.payment_confirmed;
     return `<div class="checkin-pilot-card" onclick="showDetail('${p.id}')">
-      <div class="pilot-info"><div class="pilot-number">${p.number}</div><div><div class="pilot-name">${p.nom} ${p.prenom}</div><div class="pilot-cat">${p.category||'—'} ${isCI?'— <span style="color:var(--success)">✓ Checked-in</span>':''}</div></div></div>
+      <div class="pilot-info"><div class="pilot-number">${p.number}</div><div><div class="pilot-name">${p.nom} ${p.prenom}</div><div class="pilot-cat">${pilotCatDisplay(p)} ${isCI?'— <span style="color:var(--success)">✓ Checked-in</span>':''}</div></div></div>
       <div style="display:flex;align-items:center;gap:8px">${needsPay?'<span class="badge badge-warning">💶 Espèce</span>':''}<span class="badge ${all?'badge-success':sc>0?'badge-warning':'badge-danger'}">${sc}/${DOCS.length}</span>
       ${all&&!isCI&&!needsPay?'<span class="badge badge-success">Prêt</span>':''}${isCI?'<span class="badge badge-success">✓</span>':''}</div>
     </div>`;
@@ -1227,7 +1239,7 @@ function showDetail(pid) {
   const braceletRemis=!!p[braceletRemisField];
 
   let h=`<div class="modal-title">#${p.number} — ${p.nom} ${p.prenom}</div>
-    <p style="color:var(--text-secondary);margin-bottom:12px">${p.category||''} | ${(p.days||[]).join('+')} | ${p.email||'—'}</p>`;
+    <p style="color:var(--text-secondary);margin-bottom:12px">${pilotCatDisplay(p)} | ${(p.days||[]).join('+')} | ${p.email||'—'}</p>`;
 
   // Payment badge
   if(isEspece){
@@ -1352,7 +1364,7 @@ function renderPilots() {
   document.getElementById('pilots-count').textContent=`Pilotes (${allPilots.length})`;
   document.getElementById('pilots-body').innerHTML=fil.length?fil.map(p=>{
     const sc=pilotSignedCount(p);const all=sc===DOCS.length;const info=pilotInfoComplete(p);
-    return `<tr><td><span style="font-family:Rajdhani;font-weight:700">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td style="font-size:12px;color:var(--text-secondary)">${p.email||'—'}</td><td>${p.category||'—'}</td><td>${(p.days||[]).map(d=>`<span class="badge badge-info" style="margin:1px">${d}</span>`).join('')}</td><td><span class="badge ${all?'badge-success':sc>0?'badge-warning':'badge-danger'}">${sc}/${DOCS.length}</span></td><td>${info?'<span class="badge badge-success">✓</span>':'<span class="badge badge-warning">❌</span>'}</td><td><button class="btn btn-sm" onclick="showDetail('${p.id}')">👁</button><button class="btn btn-sm" onclick="openPilotModal('${p.id}')">✏️</button><button class="btn btn-sm" onclick="deletePilot('${p.id}')" style="color:var(--danger)">🗑</button></td></tr>`;
+    return `<tr><td><span style="font-family:Rajdhani;font-weight:700">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td style="font-size:12px;color:var(--text-secondary)">${p.email||'—'}</td><td>${pilotCatDisplay(p)}</td><td>${(p.days||[]).map(d=>`<span class="badge badge-info" style="margin:1px">${d}</span>`).join('')}</td><td><span class="badge ${all?'badge-success':sc>0?'badge-warning':'badge-danger'}">${sc}/${DOCS.length}</span></td><td>${info?'<span class="badge badge-success">✓</span>':'<span class="badge badge-warning">❌</span>'}</td><td><button class="btn btn-sm" onclick="showDetail('${p.id}')">👁</button><button class="btn btn-sm" onclick="openPilotModal('${p.id}')">✏️</button><button class="btn btn-sm" onclick="deletePilot('${p.id}')" style="color:var(--danger)">🗑</button></td></tr>`;
   }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:32px">Aucun pilote</td></tr>';
 }
 
@@ -1541,20 +1553,73 @@ function previewHA(event) {
     try {
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-      haData=[];let skip=0;
+
+      // First pass: parse all rows
+      const rawEntries=[];
       for(let i=1;i<rows.length;i++){
-        const r=rows[i];if(!r||r.length<13){skip++;continue;}
+        const r=rows[i];if(!r||r.length<13) continue;
         const nom=String(r[3]||'').trim(),prenom=String(r[4]||'').trim(),billet=String(r[11]||'').trim();
         const tarif=String(r[12]||'').trim(),codePromo=String(r[14]||'').trim().toUpperCase(),email=String(r[16]||'').trim(),tel=String(r[17]||'').trim();
-        if(!nom||!prenom){skip++;continue;}
+        if(!nom||!prenom) continue;
         let cat='',days=[];const tp=tarif.split(' - ');
         if(tp.length>=2){cat=tp[0].trim();const dp=tp[1].trim().toLowerCase();days=dp.includes('week')?['samedi','dimanche']:dp.includes('dimanche')?['dimanche']:['samedi'];}else{cat=tarif;days=['samedi'];}
-        const num=billet.slice(-4)||String(i);
         const isEspece=codePromo.includes('ESPECE');
-        if(allPilots.some(p=>p.number===num)||haData.some(p=>p.number===num)){skip++;continue;}
-        haData.push({nom:nom.charAt(0).toUpperCase()+nom.slice(1).toLowerCase(),prenom:prenom.charAt(0).toUpperCase()+prenom.slice(1).toLowerCase(),number:num,email,telephone:tel,category:cat,days,numBillet:billet,isEspece});
+        rawEntries.push({nom:nom.charAt(0).toUpperCase()+nom.slice(1).toLowerCase(),prenom:prenom.charAt(0).toUpperCase()+prenom.slice(1).toLowerCase(),email,telephone:tel,category:cat,days,numBillet:billet,isEspece});
       }
-      document.getElementById('ha-preview').innerHTML=haData.length?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">${haData.length} pilote(s)${skip?' — '+skip+' ignoré(s)':''}</div><div class="table-wrap" style="max-height:250px;overflow-y:auto"><table><thead><tr><th>#</th><th>Nom</th><th>Cat.</th><th>Jours</th><th>Paiement</th><th>Email</th></tr></thead><tbody>${haData.map(p=>`<tr><td>${p.number}</td><td>${p.nom} ${p.prenom}</td><td>${p.category}</td><td>${p.days.join('+')}</td><td>${p.isEspece?'<span class="badge badge-warning">💶 Espèce</span>':'<span class="badge badge-success">✓ En ligne</span>'}</td><td style="font-size:11px">${p.email}</td></tr>`).join('')}</tbody></table></div>`:'<div style="color:var(--warning);text-align:center">Aucun pilote trouvé.</div>';
+
+      // Second pass: detect & merge duplicates by nom+prenom (case insensitive) or email
+      const merged=new Map();
+      rawEntries.forEach(entry=>{
+        const key=(entry.nom+' '+entry.prenom).toLowerCase();
+        const keyEmail=entry.email?entry.email.toLowerCase():'';
+        // Find existing match by name or email
+        let existingKey=null;
+        for(const [k,v] of merged){
+          if(k===key) {existingKey=k;break;}
+          if(keyEmail&&v.email&&v.email.toLowerCase()===keyEmail){existingKey=k;break;}
+        }
+
+        if(existingKey){
+          const existing=merged.get(existingKey);
+          // Merge days
+          entry.days.forEach(d=>{if(!existing.days.includes(d))existing.days.push(d);});
+          // Set per-day categories
+          entry.days.forEach(d=>{
+            if(d==='samedi'&&!existing.category_sam) existing.category_sam=entry.category;
+            if(d==='dimanche'&&!existing.category_dim) existing.category_dim=entry.category;
+          });
+          // Keep billets
+          if(entry.numBillet&&!existing.numBillets.includes(entry.numBillet)) existing.numBillets.push(entry.numBillet);
+          // If one is espece
+          if(entry.isEspece) existing.isEspece=true;
+          existing.merged=true;
+        } else {
+          const catSam=entry.days.includes('samedi')?entry.category:'';
+          const catDim=entry.days.includes('dimanche')?entry.category:'';
+          merged.set(key,{...entry,category_sam:catSam,category_dim:catDim,numBillets:[entry.numBillet],merged:false});
+        }
+      });
+
+      // Build final haData
+      haData=[];let skip=0;let mergedCount=0;
+      for(const [,p] of merged){
+        const num=p.numBillets[0].slice(-4)||String(Math.random()).slice(2,6);
+        // Skip if already in DB
+        if(allPilots.some(x=>x.nom.toLowerCase()===p.nom.toLowerCase()&&x.prenom.toLowerCase()===p.prenom.toLowerCase())){skip++;continue;}
+        if(haData.some(x=>x.number===num)){skip++;continue;}
+        if(p.merged) mergedCount++;
+        haData.push({...p,number:num,numBillet:p.numBillets.join('+')});
+      }
+
+      const mergedInfo=mergedCount?` — <span style="color:var(--info)">${mergedCount} doublon(s) fusionné(s) 🔗</span>`:'';
+      document.getElementById('ha-preview').innerHTML=haData.length?`<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">${haData.length} pilote(s)${skip?' — '+skip+' déjà existant(s)':''}${mergedInfo}</div><div class="table-wrap" style="max-height:250px;overflow-y:auto"><table><thead><tr><th>#</th><th>Nom</th><th>Cat. Sam</th><th>Cat. Dim</th><th>Jours</th><th>Paiement</th><th>Email</th></tr></thead><tbody>${haData.map(p=>`<tr${p.merged?' style="background:rgba(52,152,219,0.08)"':''}>
+        <td>${p.number}${p.merged?' 🔗':''}</td>
+        <td>${p.nom} ${p.prenom}</td>
+        <td>${p.category_sam?normalizeCat(p.category_sam):'—'}</td>
+        <td>${p.category_dim?normalizeCat(p.category_dim):'—'}</td>
+        <td>${p.days.join('+')}</td>
+        <td>${p.isEspece?'<span class="badge badge-warning">💶</span>':'<span class="badge badge-success">✓</span>'}</td>
+        <td style="font-size:11px">${p.email}</td></tr>`).join('')}</tbody></table></div>`:'<div style="color:var(--warning);text-align:center">Aucun pilote trouvé.</div>';
       if(haData.length)document.getElementById('ha-actions').style.display='block';
     }catch(err){document.getElementById('ha-preview').innerHTML='❌ '+err.message;}
   };
@@ -1567,7 +1632,9 @@ async function confirmHAImport() {
   for(const p of haData) {
     try {
       const res=await sb('pilots',{method:'POST',body:JSON.stringify({
-        event_id:eventData.id,nom:p.nom,prenom:p.prenom,number:p.number,email:p.email,telephone:p.telephone,category:p.category,days:p.days,num_billet:p.numBillet,
+        event_id:eventData.id,nom:p.nom,prenom:p.prenom,number:p.number,email:p.email,telephone:p.telephone,
+        category:p.category,category_sam:p.category_sam||'',category_dim:p.category_dim||'',
+        days:p.days,num_billet:p.numBillet,
         payment_method:p.isEspece?'espece':'en_ligne',
         payment_confirmed:!p.isEspece
       })});
@@ -1730,11 +1797,10 @@ function searchDR() {
   const res=allPilots.filter(p=>p.nom.toLowerCase().includes(q)||p.prenom.toLowerCase().includes(q)||p.number.includes(q)||(p.email||'').toLowerCase().includes(q)).slice(0,8);
   if(!res.length){c.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:16px">Aucun résultat</div>';return;}
 
-  const catCapacity={'Débutant':35,'Inter':35,'Expert':35,'Auto':30};
-  const CATS_DR=['Débutant','Inter','Expert','Auto'];
+  const catCapacity={'Débutant':35,'Inter 1':35,'Inter 2':35,'Expert':35};
+  const CATS_DR=['Débutant','Inter 1','Inter 2','Expert'];
 
   c.innerHTML=res.map(p=>{
-    const pilotCat=normalizeCat(p.category);
     const existingDR=allDR.filter(d=>d.pilot_id===p.id);
     const days=p.days||[];
 
@@ -1746,21 +1812,20 @@ function searchDR() {
       }
     });
 
-    // Available categories (exclude their own)
-    const availCats=CATS_DR.filter(c=>c!==pilotCat);
-
     return `<div style="padding:14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <div style="display:flex;align-items:center;gap:12px">
           <div style="font-family:Rajdhani;font-weight:700;font-size:22px;background:var(--accent);color:white;width:44px;height:44px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center">${p.number}</div>
           <div><div style="font-weight:600">${p.nom} ${p.prenom}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">Cat: <strong>${pilotCat}</strong> | ${days.join('+')}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">Cat: <strong>${pilotCatDisplay(p)}</strong> | ${days.join('+')}</div>
           ${drHTML}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${days.map(day=>{
             const existingForDay=existingDR.find(d=>d.day===day);
             if(existingForDay) return '';
+            const dayCat=pilotCatForDay(p,day);
+            const availCats=CATS_DR.filter(c=>c!==dayCat);
             return availCats.map(cat=>`<button class="btn btn-sm btn-primary" style="font-size:12px;padding:4px 10px" onclick="addDR('${p.id}','${cat}','${day}')">+${cat} ${day.slice(0,3)}</button>`).join('');
           }).join('')}
         </div>
@@ -1771,7 +1836,7 @@ function searchDR() {
 
 async function addDR(pilotId, category, day) {
   // Check capacity
-  const catCapacity={'Débutant':35,'Inter':35,'Expert':35,'Auto':30};
+  const catCapacity={'Débutant':35,'Inter 1':35,'Inter 2':35,'Expert':35};
   const cap=catCapacity[category]||35;
   let count=allPilots.filter(p=>normalizeCat(p.category)===category&&(p.days||[]).includes(day)).length;
   count+=allDR.filter(d=>normalizeCat(d.category)===category&&d.day===day).length;
@@ -1830,7 +1895,7 @@ function renderDR() {
   tbody.innerHTML=allDR.map(dr=>{
     const p=allPilots.find(x=>x.id===dr.pilot_id);
     if(!p) return '';
-    const origCat=normalizeCat(p.category);
+    const origCat=pilotCatForDay(p,dr.day);
     return `<tr>
       <td><span style="font-family:Rajdhani;font-weight:700">${p.number}</span></td>
       <td><strong>${p.nom} ${p.prenom}</strong></td>
@@ -1847,30 +1912,34 @@ function renderDR() {
 function normalizeCat(raw) {
   const c=(raw||'').trim().toLowerCase();
   if(c.includes('débutant')||c.includes('debutant')) return 'Débutant';
-  if(c.includes('inter')) return 'Inter';
+  if(c.includes('inter 2')||c.includes('inter2')) return 'Inter 2';
+  if(c.includes('inter 1')||c.includes('inter1')||c.includes('inter')) return 'Inter 1';
   if(c.includes('expert')) return 'Expert';
-  if(c.includes('auto')) return 'Auto';
   return raw||'Autre';
 }
 
 function renderCategories() {
-  const CATS=['Débutant','Inter','Expert','Auto'];
-  const catColors={'Débutant':'#3498db','Inter':'#f39c12','Expert':'#e63946','Auto':'#2ecc71'};
-  const catCapacity={'Débutant':35,'Inter':35,'Expert':35,'Auto':30};
+  const CATS=['Débutant','Inter 1','Inter 2','Expert'];
+  const catColors={'Débutant':'#2ecc71','Inter 1':'#f39c12','Inter 2':'#e63946','Expert':'#3498db'};
+  const catCapacity={'Débutant':35,'Inter 1':35,'Inter 2':35,'Expert':35};
 
-  // Count per cat per day
+  // Count per cat per day (using per-day categories for accurate counting)
   const data={};
   CATS.forEach(c=>{data[c]={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};});
   data['Autre']={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};
 
   allPilots.forEach(p=>{
-    const cat=normalizeCat(p.category);
-    if(!data[cat]) data[cat]={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};
     const days=p.days||[];
-    if(days.includes('samedi')) data[cat].samedi++;
-    if(days.includes('dimanche')) data[cat].dimanche++;
-    data[cat].total++;
-    data[cat].pilots.push(p);
+    const catSam=days.includes('samedi')?pilotCatForDay(p,'samedi'):null;
+    const catDim=days.includes('dimanche')?pilotCatForDay(p,'dimanche'):null;
+    // Count in the right category per day
+    if(catSam){if(!data[catSam])data[catSam]={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};data[catSam].samedi++;}
+    if(catDim){if(!data[catDim])data[catDim]={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};data[catDim].dimanche++;}
+    // Add to pilot list of primary category
+    const mainCat=normalizeCat(p.category);
+    if(!data[mainCat])data[mainCat]={samedi:0,dimanche:0,total:0,drSamedi:0,drDimanche:0,pilots:[]};
+    data[mainCat].total++;
+    data[mainCat].pilots.push(p);
   });
 
   // Add double roulages to category counts
@@ -1994,7 +2063,7 @@ function searchBracelet() {
         <div style="font-family:Rajdhani;font-weight:700;font-size:32px;background:var(--accent);color:white;width:64px;height:64px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center">${r.bracelet}</div>
         <div>
           <div style="font-weight:600;font-size:18px">${p.nom} ${p.prenom}</div>
-          <div style="color:var(--text-secondary);font-size:14px">N° course: ${p.number} | ${p.category||'—'} | ${r.day}</div>
+          <div style="color:var(--text-secondary);font-size:14px">N° course: ${p.number} | ${pilotCatDisplay(p)} | ${r.day}</div>
           <div style="color:var(--text-muted);font-size:13px">${p.email||''} ${p.telephone?'| '+p.telephone:''}</div>
         </div>
       </div>
