@@ -16,6 +16,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root {
@@ -857,10 +858,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           <div class="toolbar">
             <input type="text" class="input search-input" id="email-filter" placeholder="Rechercher un pilote..." oninput="renderEmails()" style="max-width:250px">
             <button class="btn btn-sm" onclick="copyAllLinks()">📋 Copier tous les liens</button>
-            <button class="btn btn-sm btn-primary" onclick="openBulkEmail()">📧 Email groupé</button>
+            <button class="btn btn-sm btn-primary" id="btn-mass-send" onclick="massSendEmails()">📧 Envoyer les liens par email</button>
           </div>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>#</th><th>Pilote</th><th>Email</th><th>Infos</th><th>Docs signés</th><th>Actions</th></tr></thead><tbody id="email-body"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Pilote</th><th>Email</th><th>Infos</th><th>Docs</th><th>Lien</th><th>Actions</th></tr></thead><tbody id="email-body"></tbody></table></div>
       </div>
     </div>
 
@@ -1474,16 +1475,24 @@ function renderEmails() {
   const baseUrl=getFormUrl();
   const tbody=document.getElementById('email-body');
   if(!baseUrl) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--warning);padding:32px">⚠️ Configurez d\'abord l\'URL du formulaire ci-dessus.</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--warning);padding:32px">⚠️ Configurez d\'abord l\'URL du formulaire ci-dessus.</td></tr>';
     return;
   }
+
+  const totalWithEmail=allPilots.filter(p=>p.email).length;
+  const sentCount=allPilots.filter(p=>p.link_sent).length;
+  const unsent=allPilots.filter(p=>p.email&&!p.link_sent).length;
+  const btn=document.getElementById('btn-mass-send');
+  if(btn) btn.textContent=unsent>0?`📧 Envoyer ${unsent} email(s)`:'✅ Tous les liens envoyés';
+  if(btn) btn.disabled=unsent===0;
+
   const flt=(document.getElementById('email-filter')?.value||'').toLowerCase();
   const filtered=allPilots.filter(p=>!flt||p.nom.toLowerCase().includes(flt)||p.prenom.toLowerCase().includes(flt)||p.number.includes(flt)||(p.email||'').toLowerCase().includes(flt));
   tbody.innerHTML=filtered.length?filtered.map(p=>{
     const sc=pilotSignedCount(p);const info=pilotInfoComplete(p);
-    const link=baseUrl+(baseUrl.includes('?')?'&':'?')+'token='+p.token;
-    return `<tr><td><span style="font-family:Rajdhani;font-weight:700">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td style="font-size:12px">${p.email||'—'}</td><td>${info?'✅':'❌'}</td><td><span class="badge ${sc===DOCS.length?'badge-success':sc>0?'badge-warning':'badge-danger'}">${sc}/${DOCS.length}</span></td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openDirectForm('${p.token}')" title="Ouvrir le formulaire ici">🖥️</button> <button class="btn btn-sm" onclick="copyLink('${p.token}')" title="Copier le lien">📋</button> <button class="btn btn-sm" onclick="showQR('${p.token}','${p.nom} ${p.prenom}','${p.number}')" title="QR Code">🔲</button> <button class="btn btn-sm" onclick="sendOneEmail('${p.id}')" title="Ouvrir email">📧</button></td></tr>`;
-  }).join(''):'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">Aucun résultat pour "'+flt+'"</td></tr>';
+    const sent=p.link_sent;
+    return `<tr><td><span style="font-family:Rajdhani;font-weight:700">${p.number}</span></td><td><strong>${p.nom} ${p.prenom}</strong></td><td style="font-size:12px">${p.email||'<span style="color:var(--accent)">Pas d\'email</span>'}</td><td>${info?'✅':'❌'}</td><td><span class="badge ${sc===DOCS.length?'badge-success':sc>0?'badge-warning':'badge-danger'}">${sc}/${DOCS.length}</span></td><td>${sent?'<span class="badge badge-success">✅ Envoyé</span>':'<span class="badge badge-warning">⏳ Non envoyé</span>'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="openDirectForm('${p.token}')" title="Ouvrir le formulaire">🖥️</button> <button class="btn btn-sm" onclick="copyLink('${p.token}')" title="Copier le lien">📋</button> <button class="btn btn-sm" onclick="showQR('${p.token}','${p.nom} ${p.prenom}','${p.number}')" title="QR Code">🔲</button>${p.email?` <button class="btn btn-sm${sent?'':' btn-primary'}" onclick="sendOneEmailJS('${p.id}')" title="${sent?'Renvoyer l\'email':'Envoyer l\'email'}">${sent?'🔄':'📧'}</button>`:''}</td></tr>`;
+  }).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">Aucun résultat</td></tr>';
 }
 
 function openDirectForm(token) {
@@ -1522,24 +1531,71 @@ function copyAllLinks() {
   navigator.clipboard.writeText(text).then(()=>alert(allPilots.length+' liens copiés !')).catch(()=>prompt('Copiez:',text));
 }
 
-function sendOneEmail(pid) {
-  const p=allPilots.find(x=>x.id===pid);if(!p||!p.email){alert('Pas d\'email pour ce pilote.');return;}
+const EMAILJS_SERVICE='service_2grobjk';
+const EMAILJS_TEMPLATE='template_8gs0ahl';
+const EMAILJS_KEY='oOndWn1CkcwTzzCwW';
+
+async function sendOneEmailJS(pid) {
+  const p=allPilots.find(x=>x.id===pid);
+  if(!p||!p.email){alert('Pas d\'email pour ce pilote.');return;}
   const base=getFormUrl();if(!base){alert('Configurez l\'URL du formulaire.');return;}
   const link=base+(base.includes('?')?'&':'?')+'token='+p.token;
-  const subject=encodeURIComponent('Week-end Roulage 18-19 Avril — Documents à signer');
-  const body=encodeURIComponent(`Bonjour ${p.prenom},\n\nVous êtes inscrit(e) au week-end roulage au Circuit du Mas du Clos les 18 et 19 avril 2026 organisé par Team MRL.\n\nAvant le jour J, merci de compléter vos informations personnelles et de signer les documents obligatoires via ce lien :\n\n${link}\n\nCela prend 5 minutes et vous évitera l'attente à l'accueil !\n\nÀ bientôt sur la piste 🏁\nTeam MRL`);
-  window.open(`mailto:${p.email}?subject=${subject}&body=${body}`);
+
+  try {
+    await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+      to_email: p.email,
+      prenom: p.prenom,
+      link: link
+    }, EMAILJS_KEY);
+
+    // Mark as sent in Supabase
+    await sb(`pilots?id=eq.${p.id}`,{method:'PATCH',body:JSON.stringify({link_sent:true,link_sent_at:new Date().toISOString()})});
+    p.link_sent=true;
+    p.link_sent_at=new Date().toISOString();
+    renderEmails();
+    alert(`✅ Email envoyé à ${p.prenom} ${p.nom} (${p.email})`);
+  } catch(err) {
+    alert('❌ Erreur envoi: '+JSON.stringify(err));
+  }
 }
 
-function openBulkEmail() {
+async function massSendEmails() {
   const base=getFormUrl();if(!base){alert('Configurez l\'URL du formulaire.');return;}
-  const unsent=allPilots.filter(p=>p.email&&pilotSignedCount(p)<DOCS.length);
-  if(!unsent.length){alert('Tous les pilotes ont déjà tout signé !');return;}
-  const emails=unsent.map(p=>p.email).join(',');
-  const subject=encodeURIComponent('Week-end Roulage 18-19 Avril — Documents à signer');
-  const body=encodeURIComponent(`Bonjour,\n\nVous êtes inscrit(e) au week-end roulage au Circuit du Mas du Clos les 18 et 19 avril 2026.\n\nMerci de compléter vos informations et signer vos documents via le lien personnel que vous recevrez individuellement.\n\nTeam MRL 🏁`);
-  window.open(`mailto:${emails}?subject=${subject}&body=${body}`);
-  alert(`${unsent.length} adresses email copiées dans votre client mail.\n\n⚠️ Pour les liens personnalisés, utilisez "📧" individuel ou "📋 Copier tous les liens" pour un envoi personnalisé.`);
+  const toSend=allPilots.filter(p=>p.email&&!p.link_sent);
+  if(!toSend.length){alert('✅ Tous les emails ont déjà été envoyés !');return;}
+
+  if(!confirm(`Envoyer ${toSend.length} email(s) personnalisé(s) avec le lien de signature ?\n\nChaque pilote recevra son lien unique.`)) return;
+
+  const btn=document.getElementById('btn-mass-send');
+  btn.disabled=true;
+  let sent=0, errors=0;
+
+  for(const p of toSend) {
+    btn.textContent=`⏳ ${sent+errors+1}/${toSend.length}...`;
+    const link=base+(base.includes('?')?'&':'?')+'token='+p.token;
+    try {
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        to_email: p.email,
+        prenom: p.prenom,
+        link: link
+      }, EMAILJS_KEY);
+
+      await sb(`pilots?id=eq.${p.id}`,{method:'PATCH',body:JSON.stringify({link_sent:true,link_sent_at:new Date().toISOString()})});
+      p.link_sent=true;
+      p.link_sent_at=new Date().toISOString();
+      sent++;
+    } catch(err) {
+      console.error(`Erreur ${p.nom}:`,err);
+      errors++;
+    }
+    // Pause 1s entre chaque email pour respecter les rate limits
+    await new Promise(r=>setTimeout(r,1000));
+  }
+
+  btn.textContent=`✅ ${sent} envoyé(s)${errors?' — '+errors+' erreur(s)':''}`;
+  btn.disabled=false;
+  setTimeout(()=>renderEmails(),3000);
+  renderEmails();
 }
 
 // === HELLOASSO IMPORT ===
