@@ -877,6 +877,51 @@ tr:hover td { background: rgba(255,255,255,0.02); }
         <div id="tombola-result" style="margin-top:24px"></div>
       </div>
 
+      <!-- DRAW SECTION -->
+      <div class="card" style="background:linear-gradient(135deg,rgba(230,57,70,0.08),rgba(243,156,18,0.08));border:1px solid rgba(230,57,70,0.3)">
+        <div class="card-title" style="margin-bottom:12px">🎲 Tirage au sort</div>
+        <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px">Tirez un ou plusieurs gagnants parmi les bracelets attribués. Le jour sélectionné détermine la liste des bracelets éligibles.</p>
+
+        <div class="field-row" style="margin-bottom:16px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Jour du tirage</label>
+            <select class="input" id="draw-day">
+              <option value="samedi">🗓️ Samedi</option>
+              <option value="dimanche">🗓️ Dimanche</option>
+              <option value="all">Tous les jours</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Nombre de gagnants</label>
+            <input type="number" class="input" id="draw-count" value="1" min="1" max="50" style="font-family:Rajdhani;font-weight:700;font-size:18px">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">
+            <input type="checkbox" id="draw-exclude-prev" checked>
+            Exclure les pilotes déjà tirés précédemment (évite les doublons)
+          </label>
+        </div>
+
+        <button class="btn btn-primary btn-lg" onclick="startDraw()" style="width:100%;padding:16px;font-size:16px">🎲 TIRER LES GAGNANTS</button>
+
+        <div id="draw-animation" style="display:none;text-align:center;margin-top:24px">
+          <div style="font-family:Rajdhani;font-weight:700;font-size:72px;color:var(--accent);letter-spacing:4px;min-height:100px" id="draw-num"></div>
+          <div style="font-size:14px;color:var(--text-muted)" id="draw-anim-label">Tirage en cours...</div>
+        </div>
+
+        <div id="draw-result" style="margin-top:20px"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📜 Historique des tirages</span>
+          <button class="btn btn-sm" onclick="clearDrawHistory()" style="color:var(--accent)">🗑 Vider l'historique</button>
+        </div>
+        <div id="draw-history" style="padding:12px 0"></div>
+      </div>
+
       <div class="card">
         <div class="card-header">
           <span class="card-title">📋 Tous les bracelets attribués</span>
@@ -2152,6 +2197,150 @@ function renderBraceletList() {
     <td><strong>${e.pilot.nom} ${e.pilot.prenom}</strong></td>
     <td>${e.pilot.category||'—'}</td>
   </tr>`).join('');
+
+  // Render draw history when list is rendered
+  renderDrawHistory();
+}
+
+// === TIRAGE AU SORT ===
+function getDrawHistory() {
+  try { return JSON.parse(localStorage.getItem('pitsign_draw_history')||'[]'); }
+  catch { return []; }
+}
+function saveDrawHistory(history) {
+  localStorage.setItem('pitsign_draw_history', JSON.stringify(history));
+}
+function clearDrawHistory() {
+  if(!confirm('Vider complètement l\'historique des tirages ?')) return;
+  localStorage.removeItem('pitsign_draw_history');
+  renderDrawHistory();
+}
+
+function renderDrawHistory() {
+  const history=getDrawHistory();
+  const container=document.getElementById('draw-history');
+  if(!container) return;
+  if(!history.length){
+    container.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:16px;font-size:14px">Aucun tirage effectué pour le moment</div>';
+    return;
+  }
+  container.innerHTML=history.slice().reverse().map((draw,idx)=>{
+    const realIdx=history.length-1-idx;
+    return `<div style="padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:var(--bg-card)">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+        <div style="font-size:12px;color:var(--text-muted)">🕐 ${new Date(draw.date).toLocaleString('fr-FR')} — <span class="badge badge-info">${draw.day}</span></div>
+        <button class="btn btn-sm" onclick="deleteDrawEntry(${realIdx})" style="color:var(--accent);padding:2px 8px">🗑</button>
+      </div>
+      ${draw.winners.map(w=>`<div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+        <div style="font-family:Rajdhani;font-weight:700;font-size:22px;color:var(--accent);min-width:60px">🎟️ ${w.bracelet}</div>
+        <div style="flex:1"><strong>${w.nom} ${w.prenom}</strong> <span style="color:var(--text-muted);font-size:13px">(#${w.number} — ${w.category||'—'})</span></div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function deleteDrawEntry(idx) {
+  if(!confirm('Supprimer ce tirage de l\'historique ?')) return;
+  const history=getDrawHistory();
+  history.splice(idx,1);
+  saveDrawHistory(history);
+  renderDrawHistory();
+}
+
+function getAllDrawnBracelets() {
+  const history=getDrawHistory();
+  const drawn=new Set();
+  history.forEach(d=>d.winners.forEach(w=>drawn.add(w.day+':'+w.bracelet)));
+  return drawn;
+}
+
+async function startDraw() {
+  const day=document.getElementById('draw-day').value;
+  const count=parseInt(document.getElementById('draw-count').value)||1;
+  const excludePrev=document.getElementById('draw-exclude-prev').checked;
+
+  // Build pool
+  const pool=[];
+  allPilots.forEach(p=>{
+    if(p.bracelet_sam&&(day==='all'||day==='samedi')) pool.push({bracelet:p.bracelet_sam,day:'samedi',pilot:p});
+    if(p.bracelet_dim&&(day==='all'||day==='dimanche')) pool.push({bracelet:p.bracelet_dim,day:'dimanche',pilot:p});
+  });
+
+  let eligible=pool;
+  if(excludePrev){
+    const drawn=getAllDrawnBracelets();
+    eligible=pool.filter(e=>!drawn.has(e.day+':'+e.bracelet));
+  }
+
+  if(!eligible.length){
+    alert(excludePrev?'⚠️ Aucun bracelet éligible — tous ont déjà été tirés !\nDécochez l\'option "Exclure les pilotes déjà tirés" si besoin.':'⚠️ Aucun bracelet attribué pour ce jour.');
+    return;
+  }
+
+  if(count>eligible.length){
+    alert(`⚠️ Vous demandez ${count} gagnants mais seulement ${eligible.length} bracelet(s) éligible(s).`);
+    return;
+  }
+
+  // Animation
+  const animEl=document.getElementById('draw-animation');
+  const numEl=document.getElementById('draw-num');
+  const labelEl=document.getElementById('draw-anim-label');
+  const resultEl=document.getElementById('draw-result');
+  animEl.style.display='block';
+  resultEl.innerHTML='';
+
+  // Shuffle animation
+  const shuffled=[...eligible].sort(()=>Math.random()-0.5);
+  const winners=shuffled.slice(0,count);
+
+  for(let w=0;w<winners.length;w++){
+    labelEl.textContent=`🎲 Tirage ${w+1}/${count}...`;
+    // Quick shuffle animation
+    for(let i=0;i<20;i++){
+      const rand=eligible[Math.floor(Math.random()*eligible.length)];
+      numEl.textContent=rand.bracelet;
+      await new Promise(r=>setTimeout(r,80-i*2));
+    }
+    numEl.textContent=winners[w].bracelet;
+    numEl.style.textShadow='0 0 30px var(--accent)';
+    await new Promise(r=>setTimeout(r,400));
+    numEl.style.textShadow='';
+    if(w<winners.length-1) await new Promise(r=>setTimeout(r,200));
+  }
+
+  animEl.style.display='none';
+
+  // Save to history
+  const history=getDrawHistory();
+  history.push({
+    date:new Date().toISOString(),
+    day:day==='all'?'Tous':day,
+    winners:winners.map(w=>({
+      bracelet:w.bracelet,
+      day:w.day,
+      number:w.pilot.number,
+      nom:w.pilot.nom,
+      prenom:w.pilot.prenom,
+      category:w.pilot.category||''
+    }))
+  });
+  saveDrawHistory(history);
+
+  // Display result
+  resultEl.innerHTML=`<div style="padding:24px;background:linear-gradient(135deg,rgba(46,204,113,0.15),rgba(52,152,219,0.1));border:2px solid var(--success);border-radius:var(--radius-lg)">
+    <div style="text-align:center;font-family:Rajdhani;font-weight:700;font-size:22px;color:var(--success);margin-bottom:16px">🏆 ${winners.length>1?winners.length+' GAGNANTS':'GAGNANT'} !</div>
+    ${winners.map((w,i)=>`<div style="display:flex;align-items:center;gap:16px;padding:12px 14px;background:var(--bg-card);border-radius:var(--radius);margin-bottom:8px">
+      <div style="font-family:Rajdhani;font-weight:700;font-size:36px;color:var(--accent);min-width:80px;text-align:center">🎟️ ${w.bracelet}</div>
+      <div style="flex:1">
+        <div style="font-size:18px;font-weight:700">${w.pilot.nom} ${w.pilot.prenom}</div>
+        <div style="color:var(--text-secondary);font-size:13px">N° course: ${w.pilot.number} | ${w.pilot.category||'—'} | <span class="badge badge-info">${w.day}</span></div>
+        ${w.pilot.telephone?`<div style="color:var(--text-muted);font-size:12px;margin-top:2px">📞 ${w.pilot.telephone}</div>`:''}
+      </div>
+    </div>`).join('')}
+  </div>`;
+
+  renderDrawHistory();
 }
 
 // === SETTINGS ===
