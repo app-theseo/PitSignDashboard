@@ -757,6 +757,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fsPop { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
 
 /* === EMPTY STATE === */
 .empty-state {
@@ -999,7 +1000,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
           </label>
         </div>
 
-        <button class="btn btn-primary btn-lg" onclick="startDraw()" style="width:100%;padding:16px;font-size:16px">🎲 TIRER LES GAGNANTS</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-lg" onclick="startDraw(false)" style="flex:1;padding:16px;font-size:16px">🎲 TIRER LES GAGNANTS</button>
+          <button class="btn btn-lg" onclick="startDraw(true)" style="flex:1;padding:16px;font-size:16px;background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:#9b59b6;color:white">🖥️ TIRAGE ÉCRAN PUBLIC</button>
+        </div>
 
         <div id="draw-animation" style="display:none;text-align:center;margin-top:24px">
           <div style="font-family:Rajdhani;font-weight:700;font-size:72px;color:var(--accent);letter-spacing:4px;min-height:100px" id="draw-num"></div>
@@ -1175,6 +1179,18 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </div>
 
 </div><!-- /app-wrapper -->
+
+<!-- FULLSCREEN PUBLIC DRAW -->
+<div id="draw-fullscreen" style="display:none;position:fixed;inset:0;z-index:9999;background:#0a0a0c;overflow:hidden;cursor:pointer" onclick="if(event.target===this&&drawFsState==='idle')closeDrawFs()">
+  <canvas id="draw-fs-canvas" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  <div id="draw-fs-content" style="position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px;text-align:center">
+    <div id="draw-fs-header" style="font-family:Rajdhani;font-weight:700;font-size:clamp(24px,4vw,48px);color:#e63946;letter-spacing:4px;text-transform:uppercase;margin-bottom:20px">🎰 TOMBOLA 🎰</div>
+    <div id="draw-fs-number" style="font-family:Rajdhani;font-weight:700;font-size:clamp(80px,20vw,200px);color:white;letter-spacing:8px;min-height:clamp(100px,25vw,250px);display:flex;align-items:center;justify-content:center;text-shadow:0 0 40px rgba(230,57,70,0.5)"></div>
+    <div id="draw-fs-label" style="font-size:clamp(16px,2.5vw,28px);color:#8888a0;margin-top:16px"></div>
+    <div id="draw-fs-winner" style="margin-top:32px;display:none"></div>
+    <div id="draw-fs-close" style="position:fixed;top:20px;right:20px;font-size:32px;color:#55556a;cursor:pointer;z-index:10" onclick="closeDrawFs()">✕</div>
+  </div>
+</div>
 
 <script>
 // === PWA SETUP ===
@@ -2349,12 +2365,117 @@ function getAllDrawnBracelets() {
   return drawn;
 }
 
-async function startDraw() {
+let drawFsState='idle';
+let drawFsParticles=[];
+let drawFsAnimFrame=null;
+
+function closeDrawFs(){
+  const el=document.getElementById('draw-fullscreen');
+  el.style.display='none';
+  drawFsState='idle';
+  if(drawFsAnimFrame) cancelAnimationFrame(drawFsAnimFrame);
+  drawFsAnimFrame=null;
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+}
+
+function initFsCanvas(){
+  const canvas=document.getElementById('draw-fs-canvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  drawFsParticles=[];
+  return {canvas,ctx};
+}
+
+function spawnConfetti(count){
+  const w=window.innerWidth,h=window.innerHeight;
+  const colors=['#e63946','#f39c12','#2ecc71','#3498db','#9b59b6','#ff6b6b','#feca57','#48dbfb','#ff9ff3','#ffffff'];
+  for(let i=0;i<count;i++){
+    drawFsParticles.push({
+      x:w/2+(Math.random()-0.5)*200,
+      y:h*0.35,
+      vx:(Math.random()-0.5)*16,
+      vy:-Math.random()*18-5,
+      size:Math.random()*8+4,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      rotation:Math.random()*360,
+      rotSpeed:(Math.random()-0.5)*12,
+      gravity:0.25,
+      life:1,
+      decay:0.003+Math.random()*0.004,
+      shape:Math.random()>0.5?'rect':'circle'
+    });
+  }
+}
+
+function spawnFireworks(x,y){
+  const colors=['#e63946','#f39c12','#2ecc71','#3498db','#ff6b6b','#feca57','#9b59b6'];
+  for(let i=0;i<60;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=Math.random()*8+2;
+    drawFsParticles.push({
+      x,y,
+      vx:Math.cos(angle)*speed,
+      vy:Math.sin(angle)*speed,
+      size:Math.random()*4+2,
+      color:colors[Math.floor(Math.random()*colors.length)],
+      rotation:0,rotSpeed:0,
+      gravity:0.08,
+      life:1,
+      decay:0.012+Math.random()*0.01,
+      shape:'circle'
+    });
+  }
+}
+
+function animateFsParticles(){
+  const canvas=document.getElementById('draw-fs-canvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;
+  canvas.height=window.innerHeight;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Dark radial gradient background
+  const grad=ctx.createRadialGradient(canvas.width/2,canvas.height*0.4,0,canvas.width/2,canvas.height*0.4,canvas.width*0.7);
+  grad.addColorStop(0,'rgba(30,0,10,0.3)');
+  grad.addColorStop(1,'rgba(10,10,12,0)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  drawFsParticles=drawFsParticles.filter(p=>{
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.vy+=p.gravity;
+    p.vx*=0.99;
+    p.rotation+=p.rotSpeed;
+    p.life-=p.decay;
+    if(p.life<=0) return false;
+
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(p.rotation*Math.PI/180);
+    ctx.globalAlpha=Math.min(p.life,1);
+    ctx.fillStyle=p.color;
+    ctx.shadowColor=p.color;
+    ctx.shadowBlur=p.size*2;
+    if(p.shape==='rect'){
+      ctx.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);
+    } else {
+      ctx.beginPath();ctx.arc(0,0,p.size/2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.restore();
+    return true;
+  });
+
+  drawFsAnimFrame=requestAnimationFrame(animateFsParticles);
+}
+
+async function startDraw(publicMode) {
   const day=document.getElementById('draw-day').value;
   const count=parseInt(document.getElementById('draw-count').value)||1;
   const excludePrev=document.getElementById('draw-exclude-prev').checked;
 
-  // Build pool
   const pool=[];
   allPilots.forEach(p=>{
     if(p.bracelet_sam&&(day==='all'||day==='samedi')) pool.push({bracelet:p.bracelet_sam,day:'samedi',pilot:p});
@@ -2368,43 +2489,22 @@ async function startDraw() {
   }
 
   if(!eligible.length){
-    alert(excludePrev?'⚠️ Aucun bracelet éligible — tous ont déjà été tirés !\nDécochez l\'option "Exclure les pilotes déjà tirés" si besoin.':'⚠️ Aucun bracelet attribué pour ce jour.');
+    alert(excludePrev?'⚠️ Aucun bracelet éligible — tous ont déjà été tirés !':'⚠️ Aucun bracelet attribué pour ce jour.');
     return;
   }
-
   if(count>eligible.length){
     alert(`⚠️ Vous demandez ${count} gagnants mais seulement ${eligible.length} bracelet(s) éligible(s).`);
     return;
   }
 
-  // Animation
-  const animEl=document.getElementById('draw-animation');
-  const numEl=document.getElementById('draw-num');
-  const labelEl=document.getElementById('draw-anim-label');
-  const resultEl=document.getElementById('draw-result');
-  animEl.style.display='block';
-  resultEl.innerHTML='';
-
-  // Shuffle animation
   const shuffled=[...eligible].sort(()=>Math.random()-0.5);
   const winners=shuffled.slice(0,count);
 
-  for(let w=0;w<winners.length;w++){
-    labelEl.textContent=`🎲 Tirage ${w+1}/${count}...`;
-    // Quick shuffle animation
-    for(let i=0;i<20;i++){
-      const rand=eligible[Math.floor(Math.random()*eligible.length)];
-      numEl.textContent=rand.bracelet;
-      await new Promise(r=>setTimeout(r,80-i*2));
-    }
-    numEl.textContent=winners[w].bracelet;
-    numEl.style.textShadow='0 0 30px var(--accent)';
-    await new Promise(r=>setTimeout(r,400));
-    numEl.style.textShadow='';
-    if(w<winners.length-1) await new Promise(r=>setTimeout(r,200));
+  if(publicMode){
+    await runPublicDraw(winners,eligible,count,day);
+  } else {
+    await runInlineDraw(winners,eligible,count);
   }
-
-  animEl.style.display='none';
 
   // Save to history
   const history=getDrawHistory();
@@ -2412,20 +2512,17 @@ async function startDraw() {
     date:new Date().toISOString(),
     day:day==='all'?'Tous':day,
     winners:winners.map(w=>({
-      bracelet:w.bracelet,
-      day:w.day,
-      number:w.pilot.number,
-      nom:w.pilot.nom,
-      prenom:w.pilot.prenom,
-      category:w.pilot.category||''
+      bracelet:w.bracelet,day:w.day,number:w.pilot.number,
+      nom:w.pilot.nom,prenom:w.pilot.prenom,category:w.pilot.category||''
     }))
   });
   saveDrawHistory(history);
 
-  // Display result
+  // Display inline result
+  const resultEl=document.getElementById('draw-result');
   resultEl.innerHTML=`<div style="padding:24px;background:linear-gradient(135deg,rgba(46,204,113,0.15),rgba(52,152,219,0.1));border:2px solid var(--success);border-radius:var(--radius-lg)">
     <div style="text-align:center;font-family:Rajdhani;font-weight:700;font-size:22px;color:var(--success);margin-bottom:16px">🏆 ${winners.length>1?winners.length+' GAGNANTS':'GAGNANT'} !</div>
-    ${winners.map((w,i)=>`<div style="display:flex;align-items:center;gap:16px;padding:12px 14px;background:var(--bg-card);border-radius:var(--radius);margin-bottom:8px">
+    ${winners.map(w=>`<div style="display:flex;align-items:center;gap:16px;padding:12px 14px;background:var(--bg-card);border-radius:var(--radius);margin-bottom:8px">
       <div style="font-family:Rajdhani;font-weight:700;font-size:36px;color:var(--accent);min-width:80px;text-align:center">🎟️ ${w.bracelet}</div>
       <div style="flex:1">
         <div style="font-size:18px;font-weight:700">${w.pilot.nom} ${w.pilot.prenom}</div>
@@ -2434,8 +2531,126 @@ async function startDraw() {
       </div>
     </div>`).join('')}
   </div>`;
-
   renderDrawHistory();
+}
+
+async function runInlineDraw(winners,eligible,count){
+  const animEl=document.getElementById('draw-animation');
+  const numEl=document.getElementById('draw-num');
+  const labelEl=document.getElementById('draw-anim-label');
+  animEl.style.display='block';
+  document.getElementById('draw-result').innerHTML='';
+
+  for(let w=0;w<winners.length;w++){
+    labelEl.textContent=`🎲 Tirage ${w+1}/${count}...`;
+    for(let i=0;i<20;i++){
+      numEl.textContent=eligible[Math.floor(Math.random()*eligible.length)].bracelet;
+      await new Promise(r=>setTimeout(r,80-i*2));
+    }
+    numEl.textContent=winners[w].bracelet;
+    numEl.style.textShadow='0 0 30px var(--accent)';
+    await new Promise(r=>setTimeout(r,400));
+    numEl.style.textShadow='';
+    if(w<winners.length-1) await new Promise(r=>setTimeout(r,200));
+  }
+  animEl.style.display='none';
+}
+
+async function runPublicDraw(winners,eligible,count,day){
+  drawFsState='running';
+  const fs=document.getElementById('draw-fullscreen');
+  fs.style.display='block';
+
+  try{document.documentElement.requestFullscreen();}catch(e){}
+
+  initFsCanvas();
+  animateFsParticles();
+
+  const fsNum=document.getElementById('draw-fs-number');
+  const fsLabel=document.getElementById('draw-fs-label');
+  const fsWinner=document.getElementById('draw-fs-winner');
+  const fsHeader=document.getElementById('draw-fs-header');
+
+  fsHeader.textContent='🎰 TOMBOLA 🎰';
+  fsLabel.textContent=`${day==='all'?'Samedi & Dimanche':day.charAt(0).toUpperCase()+day.slice(1)} — ${count} lot${count>1?'s':''} à gagner`;
+  fsWinner.style.display='none';
+  fsWinner.innerHTML='';
+  fsNum.textContent='';
+  fsNum.style.opacity='1';
+
+  await new Promise(r=>setTimeout(r,1500));
+
+  for(let w=0;w<winners.length;w++){
+    fsWinner.style.display='none';
+    fsNum.style.opacity='1';
+    fsLabel.textContent=`🎲 Tirage ${w+1}/${count} — Attention...`;
+    fsNum.style.color='white';
+
+    // Phase 1: Fast shuffle (1.5s)
+    for(let i=0;i<30;i++){
+      const rand=eligible[Math.floor(Math.random()*eligible.length)];
+      fsNum.textContent=rand.bracelet;
+      await new Promise(r=>setTimeout(r,50));
+    }
+
+    // Phase 2: Slow down (2s)
+    for(let i=0;i<20;i++){
+      const rand=eligible[Math.floor(Math.random()*eligible.length)];
+      fsNum.textContent=rand.bracelet;
+      const delay=60+i*30;
+      await new Promise(r=>setTimeout(r,delay));
+    }
+
+    // Phase 3: Near-final with tension (1.5s)
+    for(let i=0;i<8;i++){
+      const rand=eligible[Math.floor(Math.random()*eligible.length)];
+      fsNum.textContent=rand.bracelet;
+      await new Promise(r=>setTimeout(r,200+i*50));
+    }
+
+    // Phase 4: REVEAL!
+    fsNum.textContent=winners[w].bracelet;
+    fsNum.style.color='#e63946';
+
+    // Fireworks!
+    const cx=window.innerWidth/2;
+    spawnFireworks(cx,window.innerHeight*0.25);
+    spawnFireworks(cx-200,window.innerHeight*0.3);
+    spawnFireworks(cx+200,window.innerHeight*0.3);
+    setTimeout(()=>{spawnConfetti(150);},300);
+    setTimeout(()=>{
+      spawnFireworks(cx-100,window.innerHeight*0.2);
+      spawnFireworks(cx+100,window.innerHeight*0.35);
+    },600);
+    setTimeout(()=>{spawnConfetti(100);},900);
+
+    const p=winners[w].pilot;
+    fsLabel.innerHTML=`<span style="color:#2ecc71;font-weight:700">🏆 GAGNANT !</span>`;
+
+    fsWinner.style.display='block';
+    fsWinner.innerHTML+=`<div style="animation:fsPop 0.5s ease;margin-top:16px;padding:20px 32px;background:rgba(230,57,70,0.15);border:2px solid #e63946;border-radius:16px;display:inline-block">
+      <div style="font-family:Rajdhani;font-weight:700;font-size:clamp(28px,5vw,52px);color:white">${p.nom} ${p.prenom}</div>
+      <div style="font-size:clamp(14px,2vw,22px);color:#8888a0;margin-top:4px">N° ${p.number} — ${p.category||'—'} — 🎟️ ${winners[w].bracelet}</div>
+    </div>`;
+
+    if(w<winners.length-1){
+      await new Promise(r=>setTimeout(r,5000));
+      fsNum.textContent='';
+      fsLabel.textContent='Prochain tirage...';
+      await new Promise(r=>setTimeout(r,2000));
+    } else {
+      fsLabel.innerHTML=`<span style="color:#2ecc71;font-size:clamp(18px,3vw,32px);font-weight:700">🎉 ${count>1?'TOUS LES GAGNANTS !':'FÉLICITATIONS !'} 🎉</span>`;
+      // Final confetti burst
+      setTimeout(()=>{spawnConfetti(200);},500);
+      setTimeout(()=>{
+        spawnFireworks(window.innerWidth*0.2,window.innerHeight*0.3);
+        spawnFireworks(window.innerWidth*0.8,window.innerHeight*0.3);
+      },1000);
+      setTimeout(()=>{spawnConfetti(200);},1500);
+    }
+  }
+
+  drawFsState='idle';
 }
 
 // === SETTINGS ===
