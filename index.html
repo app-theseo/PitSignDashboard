@@ -3176,6 +3176,9 @@ function renderTV(){
   });
 
   const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  const realDayNames=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
+  const realDayName=realDayNames[new Date().getDay()];
+  const isPreview=!isEventDay;
 
   let h='';
 
@@ -3191,7 +3194,7 @@ function renderTV(){
   // Header
   h+=`<div style="text-align:center;margin-bottom:24px">
     <div style="font-family:Rajdhani;font-weight:700;font-size:clamp(28px,4vw,52px);color:white;letter-spacing:2px">🏁 ${eventData.name||'PITSIGN'}</div>
-    <div style="font-size:clamp(14px,2vw,24px);color:#8888a0">${day.charAt(0).toUpperCase()+day.slice(1)} — ${now}</div>
+    <div style="font-size:clamp(14px,2vw,24px);color:#8888a0">${realDayName} — ${now}${isPreview?' — <span style="color:var(--warning)">Aperçu '+day+'</span>':''}</div>
     ${activeSess?`<div style="margin-top:8px;font-size:clamp(16px,2.5vw,28px);color:${catColors[activeSess.category]||'#3498db'};font-weight:600">▶️ ${activeSess.category} en piste (${activeSess.start_time} - ${activeSess.end_time})</div>`:''}
   </div>`;
 
@@ -3233,8 +3236,8 @@ function renderTV(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">`;
     todaySessions.forEach(s=>{
       const c=catColors[s.category]||'#8888a0';
-      const isActive=s.status==='active';
-      const isDone=s.status==='completed';
+      const isActive=isEventDay&&s.status==='active';
+      const isDone=isEventDay&&s.status==='completed';
       h+=`<div style="padding:6px 14px;border-radius:8px;font-size:clamp(12px,1.2vw,15px);border:1px solid ${isActive?c:'#2a2a38'};background:${isActive?c+'33':'transparent'};color:${isDone?'#55556a':isActive?c:'#8888a0'};${isDone?'text-decoration:line-through;':''}font-weight:${isActive?'700':'400'}">
         ${s.start_time} ${s.category}
       </div>`;
