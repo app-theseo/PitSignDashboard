@@ -758,6 +758,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fsPop { 0% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes tvPulse { 0%,100% { opacity:1; } 50% { opacity:0.85; } }
 
 /* === EMPTY STATE === */
 .empty-state {
@@ -869,6 +870,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="nav-item" data-page="tombola" onclick="showPage('tombola')"><span class="nav-icon">🎰</span> Tombola</div>
       <div class="nav-item" data-page="categories" onclick="showPage('categories')"><span class="nav-icon">🏷️</span> Catégories</div>
       <div class="nav-item" data-page="double" onclick="showPage('double')"><span class="nav-icon">🔄</span> Double Roulage</div>
+      <div class="nav-item" data-page="planning" onclick="showPage('planning')"><span class="nav-icon">📅</span> Planning</div>
+      <div class="nav-item" data-page="flags" onclick="showPage('flags')"><span class="nav-icon">🚩</span> Drapeaux</div>
+      <div class="nav-item" data-page="incidents" onclick="showPage('incidents')"><span class="nav-icon">📝</span> Incidents</div>
       <div class="nav-item" data-page="settings" onclick="showPage('settings')"><span class="nav-icon">⚙️</span> Paramètres</div>
     </nav>
     <div class="sidebar-footer">
@@ -1069,6 +1073,123 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       </div>
     </div>
 
+    <!-- PLANNING -->
+    <div id="page-planning" class="page" style="display:none">
+      <h1 class="page-title">📅 PLANNING SESSIONS</h1>
+      <p class="page-subtitle">Gérer les horaires de chaque groupe sur la piste</p>
+      <div class="day-selector" id="planning-day-sel"></div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Sessions du jour</span>
+          <button class="btn btn-sm btn-primary" onclick="openAddSession()">➕ Ajouter</button>
+        </div>
+        <div id="planning-list"></div>
+      </div>
+
+      <div class="card" style="text-align:center">
+        <button class="btn btn-lg" style="background:linear-gradient(135deg,#9b59b6,#8e44ad);border-color:#9b59b6;color:white;padding:16px 40px" onclick="openTVMode()">📺 LANCER MODE TV (écran public)</button>
+      </div>
+    </div>
+
+    <!-- DRAPEAUX -->
+    <div id="page-flags" class="page" style="display:none">
+      <h1 class="page-title">🚩 DRAPEAUX & ALERTES</h1>
+      <p class="page-subtitle">Envoi d'alertes en temps réel aux pilotes</p>
+
+      <div id="active-alert-banner"></div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:20px">🏁 Actions rapides</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+          <button class="btn btn-lg" onclick="sendFlag('green_flag','🟢 DRAPEAU VERT','Session en cours — piste ouverte')" style="background:#2ecc71;border-color:#2ecc71;color:white;padding:20px;font-size:16px;flex-direction:column;height:auto">
+            <span style="font-size:32px">🟢</span><br>DRAPEAU VERT
+          </button>
+          <button class="btn btn-lg" onclick="sendFlag('yellow_flag','🟡 DRAPEAU JAUNE','Attention — danger sur la piste')" style="background:#f39c12;border-color:#f39c12;color:white;padding:20px;font-size:16px;flex-direction:column;height:auto">
+            <span style="font-size:32px">🟡</span><br>DRAPEAU JAUNE
+          </button>
+          <button class="btn btn-lg" onclick="sendFlag('red_flag','🔴 DRAPEAU ROUGE','Session stoppée — restez dans les stands')" style="background:#e63946;border-color:#e63946;color:white;padding:20px;font-size:16px;flex-direction:column;height:auto">
+            <span style="font-size:32px">🔴</span><br>DRAPEAU ROUGE
+          </button>
+          <button class="btn btn-lg" onclick="sendFlag('session_end','🏁 FIN DE SESSION','Session terminée — rentrez aux stands')" style="background:#3498db;border-color:#3498db;color:white;padding:20px;font-size:16px;flex-direction:column;height:auto">
+            <span style="font-size:32px">🏁</span><br>FIN DE SESSION
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px">📢 Message personnalisé</div>
+        <div class="form-group">
+          <label class="form-label">Titre</label>
+          <input type="text" class="input" id="flag-custom-title" placeholder="Ex: Pause déjeuner">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="input" id="flag-custom-msg" placeholder="Ex: Reprise à 14h00" style="resize:vertical;min-height:60px"></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="sendCustomAlert()">📢 Envoyer l'alerte</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📜 Historique des alertes</span>
+          <button class="btn btn-sm" onclick="clearAllAlerts()">🗑 Tout effacer</button>
+        </div>
+        <div id="alerts-history"></div>
+      </div>
+    </div>
+
+    <!-- INCIDENTS -->
+    <div id="page-incidents" class="page" style="display:none">
+      <h1 class="page-title">📝 JOURNAL D'INCIDENTS</h1>
+      <p class="page-subtitle">Suivi des incidents pour la sécurité et l'assurance</p>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:16px">➕ Signaler un incident</div>
+        <div class="field-row">
+          <div class="form-group"><label class="form-label">Pilote concerné (optionnel)</label>
+            <input type="text" class="input" id="inc-pilot-search" placeholder="Nom ou numéro..." oninput="searchIncPilot()">
+            <input type="hidden" id="inc-pilot-id" value="">
+            <div id="inc-pilot-result" style="margin-top:4px;font-size:13px;color:var(--text-secondary)"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Lieu</label>
+            <input type="text" class="input" id="inc-location" placeholder="Virage 3, Ligne droite...">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="form-group"><label class="form-label">Gravité</label>
+            <select class="input" id="inc-severity">
+              <option value="minor">🟢 Mineur (chute sans blessure)</option>
+              <option value="moderate">🟡 Modéré (blessure légère)</option>
+              <option value="serious">🔴 Sérieux (blessure, évacuation)</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Blessures ?</label>
+            <select class="input" id="inc-injuries">
+              <option value="false">Non</option>
+              <option value="true">Oui</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Description *</label>
+          <textarea class="input" id="inc-description" placeholder="Décrivez l'incident..." style="resize:vertical;min-height:80px"></textarea>
+        </div>
+        <div class="form-group"><label class="form-label">📷 Photo (optionnel)</label>
+          <input type="file" accept="image/*" capture="environment" id="inc-photo" style="font-size:14px">
+        </div>
+        <button class="btn btn-primary" onclick="saveIncident()">💾 Enregistrer l'incident</button>
+        <p id="inc-msg" style="text-align:center;font-size:13px;margin-top:8px"></p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 Incidents enregistrés</span>
+          <span id="inc-count" style="color:var(--text-muted);font-size:13px"></span>
+        </div>
+        <div id="incidents-list"></div>
+      </div>
+    </div>
+
     <!-- SETTINGS -->
     <div id="page-settings" class="page" style="display:none">
       <h1 class="page-title">PARAMÈTRES</h1>
@@ -1192,6 +1313,50 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   </div>
 </div>
 
+<!-- MODE TV FULLSCREEN -->
+<div id="tv-mode" style="display:none;position:fixed;inset:0;z-index:9998;background:#0a0a0c;overflow:hidden">
+  <div style="position:fixed;top:20px;right:20px;font-size:32px;color:#55556a;cursor:pointer;z-index:10" onclick="closeTVMode()">✕</div>
+  <div id="tv-content" style="padding:40px;height:100vh;display:flex;flex-direction:column"></div>
+</div>
+
+<!-- ADD SESSION MODAL -->
+<div class="modal-overlay" id="modal-session">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-session')">✕</button>
+    <div class="modal-title" id="ms-title">Ajouter une session</div>
+    <input type="hidden" id="ms-edit-id" value="">
+    <div class="field-row">
+      <div class="form-group"><label class="form-label">Catégorie</label>
+        <select class="input" id="ms-category">
+          <option value="Débutant">🟢 Débutant</option>
+          <option value="Inter 1">🟠 Inter 1</option>
+          <option value="Inter 2">🔴 Inter 2</option>
+          <option value="Expert">🔵 Expert</option>
+          <option value="Pause">⏸️ Pause</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Jour</label>
+        <select class="input" id="ms-day">
+          <option value="samedi">Samedi</option>
+          <option value="dimanche">Dimanche</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="form-group"><label class="form-label">Heure début</label>
+        <input type="time" class="input" id="ms-start" value="09:00">
+      </div>
+      <div class="form-group"><label class="form-label">Heure fin</label>
+        <input type="time" class="input" id="ms-end" value="09:30">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes (optionnel)</label>
+      <input type="text" class="input" id="ms-notes" placeholder="Ex: Briefing avant départ">
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="saveSession()" style="width:100%" id="ms-save-btn">➕ Ajouter</button>
+  </div>
+</div>
+
 <script>
 // === PWA SETUP ===
 (function setupPWA() {
@@ -1254,7 +1419,7 @@ const PDF_FIELD_MAPS = {
   reglement_piste:{page1:[]}, reglement_interieur:{page1:[]}
 };
 
-let allPilots = [], allSigs = {}, allDR = [], eventData = {}, activeDay = 'samedi';
+let allPilots = [], allSigs = {}, allDR = [], allAlerts = [], allSessions = [], allIncidents = [], eventData = {}, activeDay = 'samedi';
 
 // === SUPABASE ===
 async function sb(path, opts={}) {
@@ -1273,6 +1438,9 @@ async function loadAll() {
   allSigs = {};
   sigs.forEach(s => { if(!allSigs[s.pilot_id]) allSigs[s.pilot_id]={}; allSigs[s.pilot_id][s.doc_id]=s; });
   allDR = await sb('double_roulages?select=*') || [];
+  allAlerts = await sb(`alerts?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || [];
+  allSessions = await sb(`sessions_planning?event_id=eq.${eventData.id}&select=*&order=sort_order.asc,start_time.asc`) || [];
+  allIncidents = await sb(`incidents?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || [];
 }
 
 function pilotSigs(p) { return allSigs[p.id] || {}; }
@@ -1303,6 +1471,9 @@ function showPage(n) {
   if(n==='tombola') { renderBraceletList(); document.getElementById('tombola-input').value=''; document.getElementById('tombola-result').innerHTML=''; document.getElementById('tombola-input').focus(); }
   if(n==='categories') renderCategories();
   if(n==='double') { renderDR(); document.getElementById('dr-search').value=''; document.getElementById('dr-search-results').innerHTML=''; document.getElementById('dr-search').focus(); }
+  if(n==='planning') { renderDaySel('planning-day-sel'); renderPlanning(); }
+  if(n==='flags') renderFlags();
+  if(n==='incidents') renderIncidents();
   if(n==='settings') loadSettings();
   closeSidebar();
 }
@@ -2653,6 +2824,407 @@ async function runPublicDraw(winners,eligible,count,day){
   drawFsState='idle';
 }
 
+// === PLANNING ===
+function renderPlanning() {
+  renderDaySel('planning-day-sel');
+  const day=activeDay;
+  const sessions=allSessions.filter(s=>s.day===day);
+  const container=document.getElementById('planning-list');
+
+  const catColors={'Débutant':'#2ecc71','Inter 1':'#f39c12','Inter 2':'#e63946','Expert':'#3498db','Pause':'#8888a0'};
+
+  if(!sessions.length){
+    container.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:32px">Aucune session planifiée pour le '+day+'.<br>Cliquez sur ➕ Ajouter pour commencer.</div>';
+    return;
+  }
+
+  container.innerHTML=sessions.map(s=>{
+    const color=catColors[s.category]||'#8888a0';
+    const statusIcons={'planned':'⏳','active':'🟢','paused':'⏸️','completed':'✅'};
+    const statusLabels={'planned':'Planifié','active':'En cours','paused':'En pause','completed':'Terminé'};
+    return `<div style="display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--border);border-left:4px solid ${color};border-radius:var(--radius);margin-bottom:8px;background:${s.status==='active'?'rgba(46,204,113,0.08)':'var(--bg-card)'}">
+      <div style="text-align:center;min-width:70px">
+        <div style="font-family:Rajdhani;font-weight:700;font-size:18px">${s.start_time}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${s.end_time}</div>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:600">${s.category==='Pause'?'⏸️ Pause':s.category}</div>
+        ${s.notes?`<div style="font-size:12px;color:var(--text-muted)">${s.notes}</div>`:''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text-secondary)">${statusIcons[s.status]||''} ${statusLabels[s.status]||''}</span>
+        ${s.status==='planned'?`<button class="btn btn-sm btn-success" onclick="setSessionStatus('${s.id}','active')">▶️</button>`:''}
+        ${s.status==='active'?`<button class="btn btn-sm" style="background:var(--warning);border-color:var(--warning);color:white" onclick="setSessionStatus('${s.id}','paused')">⏸️</button><button class="btn btn-sm btn-success" onclick="setSessionStatus('${s.id}','completed')">✅</button>`:''}
+        ${s.status==='paused'?`<button class="btn btn-sm btn-success" onclick="setSessionStatus('${s.id}','active')">▶️</button>`:''}
+        <button class="btn btn-sm" onclick="editSession('${s.id}')">✏️</button>
+        <button class="btn btn-sm" onclick="deleteSession('${s.id}')" style="color:var(--danger)">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddSession(){
+  document.getElementById('ms-title').textContent='Ajouter une session';
+  document.getElementById('ms-save-btn').textContent='➕ Ajouter';
+  document.getElementById('ms-edit-id').value='';
+  document.getElementById('ms-day').value=activeDay;
+  document.getElementById('ms-category').value='Débutant';
+  const last=allSessions.filter(s=>s.day===activeDay).pop();
+  document.getElementById('ms-start').value=last?last.end_time:'09:00';
+  const lh=last?parseInt(last.end_time.split(':')[0]):9;
+  const lm=last?parseInt(last.end_time.split(':')[1]):0;
+  const nm=(lm+30)%60;const nh=lh+Math.floor((lm+30)/60);
+  document.getElementById('ms-end').value=`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  document.getElementById('ms-notes').value='';
+  openModal('modal-session');
+}
+
+function editSession(id){
+  const s=allSessions.find(x=>x.id===id);if(!s)return;
+  document.getElementById('ms-title').textContent='Modifier la session';
+  document.getElementById('ms-save-btn').textContent='💾 Enregistrer';
+  document.getElementById('ms-edit-id').value=id;
+  document.getElementById('ms-day').value=s.day;
+  document.getElementById('ms-category').value=s.category;
+  document.getElementById('ms-start').value=s.start_time;
+  document.getElementById('ms-end').value=s.end_time;
+  document.getElementById('ms-notes').value=s.notes||'';
+  openModal('modal-session');
+}
+
+async function saveSession(){
+  const data={
+    event_id:eventData.id,
+    day:document.getElementById('ms-day').value,
+    category:document.getElementById('ms-category').value,
+    start_time:document.getElementById('ms-start').value,
+    end_time:document.getElementById('ms-end').value,
+    notes:document.getElementById('ms-notes').value.trim(),
+    sort_order:allSessions.filter(s=>s.day===document.getElementById('ms-day').value).length
+  };
+  const editId=document.getElementById('ms-edit-id').value;
+  try{
+    if(editId){
+      await sb(`sessions_planning?id=eq.${editId}`,{method:'PATCH',body:JSON.stringify(data)});
+      const s=allSessions.find(x=>x.id===editId);if(s)Object.assign(s,data);
+    }else{
+      const res=await sb('sessions_planning',{method:'POST',body:JSON.stringify(data)});
+      if(res&&res[0])allSessions.push(res[0]);
+    }
+    closeModal('modal-session');renderPlanning();
+  }catch(e){alert('Erreur: '+e.message);}
+}
+
+async function setSessionStatus(id,status){
+  const updates={status};
+  if(status==='active')updates.actual_start=new Date().toISOString();
+  if(status==='completed')updates.actual_end=new Date().toISOString();
+  await sb(`sessions_planning?id=eq.${id}`,{method:'PATCH',body:JSON.stringify(updates)});
+  const s=allSessions.find(x=>x.id===id);if(s)Object.assign(s,updates);
+
+  // Auto-send alert when session starts
+  if(status==='active'){
+    const sess=allSessions.find(x=>x.id===id);
+    if(sess&&sess.category!=='Pause'){
+      await sb('alerts',{method:'POST',body:JSON.stringify({
+        event_id:eventData.id,type:'green_flag',title:`🟢 ${sess.category} EN PISTE`,message:`Session ${sess.start_time} - ${sess.end_time}`,active:true
+      })});
+    }
+  }
+  renderPlanning();
+}
+
+async function deleteSession(id){
+  if(!confirm('Supprimer cette session ?'))return;
+  await sb(`sessions_planning?id=eq.${id}`,{method:'DELETE'});
+  allSessions=allSessions.filter(s=>s.id!==id);
+  renderPlanning();
+}
+
+// === DRAPEAUX / ALERTES ===
+async function sendFlag(type,title,message){
+  if(!confirm(`Envoyer "${title}" ?\n\n${message}\n\nTous les pilotes connectés recevront cette alerte.`))return;
+  // Deactivate previous alerts
+  const active=allAlerts.filter(a=>a.active);
+  for(const a of active){
+    await sb(`alerts?id=eq.${a.id}`,{method:'PATCH',body:JSON.stringify({active:false,ended_at:new Date().toISOString()})});
+    a.active=false;
+  }
+  const res=await sb('alerts',{method:'POST',body:JSON.stringify({
+    event_id:eventData.id,type,title,message,active:type!=='session_end'
+  })});
+  if(res&&res[0])allAlerts.unshift(res[0]);
+  renderFlags();
+}
+
+async function sendCustomAlert(){
+  const title=document.getElementById('flag-custom-title').value.trim();
+  const message=document.getElementById('flag-custom-msg').value.trim();
+  if(!title){alert('Saisissez un titre.');return;}
+  const res=await sb('alerts',{method:'POST',body:JSON.stringify({
+    event_id:eventData.id,type:'info',title:`📢 ${title}`,message,active:false
+  })});
+  if(res&&res[0])allAlerts.unshift(res[0]);
+  document.getElementById('flag-custom-title').value='';
+  document.getElementById('flag-custom-msg').value='';
+  renderFlags();
+}
+
+async function dismissAlert(id){
+  await sb(`alerts?id=eq.${id}`,{method:'PATCH',body:JSON.stringify({active:false,ended_at:new Date().toISOString()})});
+  const a=allAlerts.find(x=>x.id===id);if(a){a.active=false;a.ended_at=new Date().toISOString();}
+  renderFlags();
+}
+
+async function deleteAlert(id){
+  await sb(`alerts?id=eq.${id}`,{method:'DELETE'});
+  allAlerts=allAlerts.filter(a=>a.id!==id);
+  renderFlags();
+}
+
+async function clearAllAlerts(){
+  if(!confirm('Supprimer tout l\'historique des alertes ?'))return;
+  for(const a of allAlerts){await sb(`alerts?id=eq.${a.id}`,{method:'DELETE'});}
+  allAlerts=[];renderFlags();
+}
+
+function renderFlags(){
+  const active=allAlerts.find(a=>a.active);
+  const banner=document.getElementById('active-alert-banner');
+  const flagColors={'red_flag':'#e63946','yellow_flag':'#f39c12','green_flag':'#2ecc71','session_end':'#3498db','info':'#9b59b6'};
+
+  if(active){
+    const c=flagColors[active.type]||'#3498db';
+    banner.innerHTML=`<div style="padding:20px;background:${c}22;border:2px solid ${c};border-radius:var(--radius-lg);margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div><div style="font-size:20px;font-weight:700;color:${c}">${active.title}</div>
+      <div style="color:var(--text-secondary);margin-top:4px">${active.message}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Envoyé à ${new Date(active.created_at).toLocaleTimeString('fr-FR')}</div></div>
+      <button class="btn btn-sm" onclick="dismissAlert('${active.id}')" style="background:${c};border-color:${c};color:white">✅ Terminer</button>
+    </div>`;
+  } else { banner.innerHTML=''; }
+
+  const history=document.getElementById('alerts-history');
+  const past=allAlerts.filter(a=>!a.active);
+  if(!past.length){
+    history.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:16px">Aucune alerte envoyée</div>';
+    return;
+  }
+  history.innerHTML=past.map(a=>{
+    const c=flagColors[a.type]||'#3498db';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--border)">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></div>
+      <div style="flex:1"><strong>${a.title}</strong> ${a.message?'— '+a.message:''}<br><span style="font-size:11px;color:var(--text-muted)">${new Date(a.created_at).toLocaleString('fr-FR')}</span></div>
+      <button class="btn btn-sm" onclick="deleteAlert('${a.id}')" style="color:var(--danger);padding:2px 6px">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+// === INCIDENTS ===
+function searchIncPilot(){
+  const q=(document.getElementById('inc-pilot-search')?.value||'').trim().toLowerCase();
+  const res=document.getElementById('inc-pilot-result');
+  if(!q){res.innerHTML='';document.getElementById('inc-pilot-id').value='';return;}
+  const match=allPilots.find(p=>p.nom.toLowerCase().includes(q)||p.prenom.toLowerCase().includes(q)||p.number.includes(q));
+  if(match){
+    res.innerHTML=`<span style="color:var(--success)">✅ #${match.number} — ${match.nom} ${match.prenom}</span>`;
+    document.getElementById('inc-pilot-id').value=match.id;
+  }else{
+    res.innerHTML=`<span style="color:var(--text-muted)">Aucun pilote trouvé</span>`;
+    document.getElementById('inc-pilot-id').value='';
+  }
+}
+
+async function saveIncident(){
+  const desc=document.getElementById('inc-description').value.trim();
+  if(!desc){alert('Décrivez l\'incident.');return;}
+
+  let photo='';
+  const fileInput=document.getElementById('inc-photo');
+  if(fileInput.files[0]){
+    photo=await new Promise((res,rej)=>{
+      const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;
+      r.readAsDataURL(fileInput.files[0]);
+    });
+  }
+
+  const data={
+    event_id:eventData.id,
+    pilot_id:document.getElementById('inc-pilot-id').value||null,
+    day:activeDay,
+    description:desc,
+    location:document.getElementById('inc-location').value.trim(),
+    severity:document.getElementById('inc-severity').value,
+    injuries:document.getElementById('inc-injuries').value==='true',
+    photo,
+    session_category:''
+  };
+
+  try{
+    const res=await sb('incidents',{method:'POST',body:JSON.stringify(data)});
+    if(res&&res[0])allIncidents.unshift(res[0]);
+    document.getElementById('inc-description').value='';
+    document.getElementById('inc-location').value='';
+    document.getElementById('inc-pilot-search').value='';
+    document.getElementById('inc-pilot-id').value='';
+    document.getElementById('inc-pilot-result').innerHTML='';
+    document.getElementById('inc-photo').value='';
+    document.getElementById('inc-msg').innerHTML='<span style="color:var(--success)">✅ Incident enregistré</span>';
+    setTimeout(()=>{const m=document.getElementById('inc-msg');if(m)m.textContent='';},3000);
+    renderIncidents();
+  }catch(e){
+    document.getElementById('inc-msg').innerHTML='<span style="color:var(--accent)">❌ '+e.message+'</span>';
+  }
+}
+
+async function deleteIncident(id){
+  if(!confirm('Supprimer cet incident ?'))return;
+  await sb(`incidents?id=eq.${id}`,{method:'DELETE'});
+  allIncidents=allIncidents.filter(x=>x.id!==id);
+  renderIncidents();
+}
+
+function renderIncidents(){
+  document.getElementById('inc-count').textContent=`${allIncidents.length} incident(s)`;
+  const list=document.getElementById('incidents-list');
+  if(!allIncidents.length){
+    list.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:24px">Aucun incident enregistré</div>';
+    return;
+  }
+  const sevColors={'minor':'#2ecc71','moderate':'#f39c12','serious':'#e63946'};
+  const sevLabels={'minor':'Mineur','moderate':'Modéré','serious':'Sérieux'};
+  list.innerHTML=allIncidents.map(inc=>{
+    const p=inc.pilot_id?allPilots.find(x=>x.id===inc.pilot_id):null;
+    const c=sevColors[inc.severity]||'#8888a0';
+    return `<div style="padding:14px;border:1px solid var(--border);border-left:4px solid ${c};border-radius:var(--radius);margin-bottom:8px;background:var(--bg-card)">
+      <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:8px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${c}22;color:${c};font-weight:600">${sevLabels[inc.severity]}</span>
+            ${inc.injuries?'<span style="font-size:12px;padding:2px 8px;border-radius:10px;background:rgba(231,76,60,0.15);color:#e74c3c;font-weight:600">Blessure</span>':''}
+            ${inc.location?`<span style="font-size:12px;color:var(--text-muted)">📍 ${inc.location}</span>`:''}
+            <span style="font-size:11px;color:var(--text-muted)">${new Date(inc.created_at).toLocaleString('fr-FR')}</span>
+          </div>
+          ${p?`<div style="font-weight:600;margin-top:6px">#${p.number} — ${p.nom} ${p.prenom}</div>`:''}
+          <div style="margin-top:6px;font-size:14px;color:var(--text-secondary)">${inc.description}</div>
+          ${inc.photo?`<img src="${inc.photo}" style="margin-top:8px;max-width:300px;max-height:200px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer" onclick="window.open(this.src)">`:''}
+        </div>
+        <button class="btn btn-sm" onclick="deleteIncident('${inc.id}')" style="color:var(--danger)">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// === MODE TV ===
+let tvInterval=null;
+
+function openTVMode(){
+  document.getElementById('tv-mode').style.display='block';
+  try{document.documentElement.requestFullscreen();}catch(e){}
+  renderTV();
+  tvInterval=setInterval(renderTV,5000);
+}
+
+function closeTVMode(){
+  document.getElementById('tv-mode').style.display='none';
+  if(tvInterval)clearInterval(tvInterval);
+  tvInterval=null;
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+}
+
+function renderTV(){
+  const day=activeDay;
+  const pilots=allPilots.filter(p=>(p.days||[]).includes(day));
+  const total=pilots.length;
+  const ci=pilots.filter(p=>day==='samedi'?p.checked_in_sam:p.checked_in_dim).length;
+  const signed=pilots.filter(p=>pilotSignedCount(p)===DOCS.length).length;
+  const CATS=['Débutant','Inter 1','Inter 2','Expert'];
+  const catColors={'Débutant':'#2ecc71','Inter 1':'#f39c12','Inter 2':'#e63946','Expert':'#3498db'};
+
+  // Active alert
+  const activeAlert=allAlerts.find(a=>a.active);
+  const flagColors={'red_flag':'#e63946','yellow_flag':'#f39c12','green_flag':'#2ecc71','session_end':'#3498db','info':'#9b59b6'};
+
+  // Active session
+  const activeSess=allSessions.find(s=>s.day===day&&s.status==='active');
+
+  // Category counts
+  const catData={};
+  CATS.forEach(c=>{catData[c]={count:0,ci:0};});
+  pilots.forEach(p=>{
+    const cat=pilotCatForDay(p,day);
+    if(catData[cat]){catData[cat].count++;if(day==='samedi'?p.checked_in_sam:p.checked_in_dim)catData[cat].ci++;}
+  });
+
+  const now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+  let h='';
+
+  // Alert banner
+  if(activeAlert){
+    const ac=flagColors[activeAlert.type]||'#3498db';
+    h+=`<div style="padding:20px 32px;background:${ac};border-radius:16px;margin-bottom:20px;text-align:center;animation:tvPulse 2s infinite">
+      <div style="font-family:Rajdhani;font-weight:700;font-size:clamp(32px,5vw,64px);color:white">${activeAlert.title}</div>
+      <div style="font-size:clamp(16px,2.5vw,28px);color:rgba(255,255,255,0.9);margin-top:8px">${activeAlert.message}</div>
+    </div>`;
+  }
+
+  // Header
+  h+=`<div style="text-align:center;margin-bottom:24px">
+    <div style="font-family:Rajdhani;font-weight:700;font-size:clamp(28px,4vw,52px);color:white;letter-spacing:2px">🏁 ${eventData.name||'PITSIGN'}</div>
+    <div style="font-size:clamp(14px,2vw,24px);color:#8888a0">${day.charAt(0).toUpperCase()+day.slice(1)} — ${now}</div>
+    ${activeSess?`<div style="margin-top:8px;font-size:clamp(16px,2.5vw,28px);color:${catColors[activeSess.category]||'#3498db'};font-weight:600">▶️ ${activeSess.category} en piste (${activeSess.start_time} - ${activeSess.end_time})</div>`:''}
+  </div>`;
+
+  // Main stats
+  h+=`<div style="display:flex;justify-content:center;gap:clamp(16px,4vw,48px);margin-bottom:32px;flex-wrap:wrap">
+    <div style="text-align:center"><div style="font-family:Rajdhani;font-weight:700;font-size:clamp(48px,10vw,96px);color:var(--accent)">${ci}</div><div style="font-size:clamp(14px,2vw,22px);color:#8888a0;text-transform:uppercase;letter-spacing:2px">Checked-in</div></div>
+    <div style="text-align:center;opacity:0.5"><div style="font-family:Rajdhani;font-weight:700;font-size:clamp(32px,6vw,56px);color:white">${total}</div><div style="font-size:clamp(12px,1.5vw,18px);color:#55556a;text-transform:uppercase;letter-spacing:2px">Inscrits</div></div>
+    <div style="text-align:center;opacity:0.5"><div style="font-family:Rajdhani;font-weight:700;font-size:clamp(32px,6vw,56px);color:#2ecc71">${signed}</div><div style="font-size:clamp(12px,1.5vw,18px);color:#55556a;text-transform:uppercase;letter-spacing:2px">Docs signés</div></div>
+  </div>`;
+
+  // Global progress bar
+  const pct=total?Math.round(ci/total*100):0;
+  h+=`<div style="max-width:800px;margin:0 auto 32px">
+    <div style="height:clamp(16px,2vw,28px);background:#1a1a22;border-radius:20px;overflow:hidden;border:1px solid #2a2a38">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#e63946,#ff4757);border-radius:20px;transition:width 1s"></div>
+    </div>
+    <div style="text-align:center;margin-top:8px;font-family:Rajdhani;font-weight:700;font-size:clamp(18px,3vw,32px);color:var(--accent)">${pct}%</div>
+  </div>`;
+
+  // Per-category bars
+  h+=`<div style="max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px">`;
+  CATS.forEach(cat=>{
+    const d=catData[cat];if(!d)return;
+    const p=d.count?Math.round(d.ci/d.count*100):0;
+    const color=catColors[cat];
+    h+=`<div style="background:#1a1a22;border:1px solid #2a2a38;border-radius:12px;padding:16px;text-align:center">
+      <div style="font-weight:600;color:${color};font-size:clamp(14px,1.5vw,18px);margin-bottom:8px">${cat}</div>
+      <div style="font-family:Rajdhani;font-weight:700;font-size:clamp(28px,4vw,42px);color:white">${d.ci}<span style="color:#55556a;font-size:clamp(16px,2vw,24px)">/${d.count}</span></div>
+      <div style="height:8px;background:#0a0a0c;border-radius:4px;margin-top:8px;overflow:hidden"><div style="height:100%;width:${p}%;background:${color};border-radius:4px;transition:width 1s"></div></div>
+    </div>`;
+  });
+  h+=`</div>`;
+
+  // Planning sidebar
+  const todaySessions=allSessions.filter(s=>s.day===day);
+  if(todaySessions.length){
+    h+=`<div style="max-width:900px;margin:24px auto 0;padding:16px;background:#1a1a22;border:1px solid #2a2a38;border-radius:12px">
+      <div style="font-family:Rajdhani;font-weight:600;font-size:clamp(14px,1.5vw,18px);color:#8888a0;margin-bottom:12px;text-align:center">📅 PLANNING</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">`;
+    todaySessions.forEach(s=>{
+      const c=catColors[s.category]||'#8888a0';
+      const isActive=s.status==='active';
+      const isDone=s.status==='completed';
+      h+=`<div style="padding:6px 14px;border-radius:8px;font-size:clamp(12px,1.2vw,15px);border:1px solid ${isActive?c:'#2a2a38'};background:${isActive?c+'33':'transparent'};color:${isDone?'#55556a':isActive?c:'#8888a0'};${isDone?'text-decoration:line-through;':''}font-weight:${isActive?'700':'400'}">
+        ${s.start_time} ${s.category}
+      </div>`;
+    });
+    h+=`</div></div>`;
+  }
+
+  document.getElementById('tv-content').innerHTML=h;
+}
+
 // === SETTINGS ===
 function loadSettings() {
   document.getElementById('s-name').value=eventData.name||'';
@@ -2675,6 +3247,9 @@ function startRealtime() {
       ws.send(JSON.stringify({topic:'realtime:public:pilots',event:'phx_join',payload:{},ref:'1'}));
       ws.send(JSON.stringify({topic:'realtime:public:signatures',event:'phx_join',payload:{},ref:'2'}));
       ws.send(JSON.stringify({topic:'realtime:public:double_roulages',event:'phx_join',payload:{},ref:'3'}));
+      ws.send(JSON.stringify({topic:'realtime:public:alerts',event:'phx_join',payload:{},ref:'4'}));
+      ws.send(JSON.stringify({topic:'realtime:public:sessions_planning',event:'phx_join',payload:{},ref:'5'}));
+      ws.send(JSON.stringify({topic:'realtime:public:incidents',event:'phx_join',payload:{},ref:'6'}));
       setInterval(()=>ws.send(JSON.stringify({topic:'phoenix',event:'heartbeat',payload:{},ref:'hb'})),30000);
     };
     ws.onmessage=(e)=>{
@@ -2688,6 +3263,10 @@ function startRealtime() {
           if(cp==='double')renderDR();
           if(cp==='categories')renderCategories();
           if(cp==='checkin')searchPilots();
+          if(cp==='planning')renderPlanning();
+          if(cp==='flags')renderFlags();
+          if(cp==='incidents')renderIncidents();
+          if(cp==='tombola')renderBraceletList();
         });
       }
     };
