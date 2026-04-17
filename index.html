@@ -1441,9 +1441,10 @@ async function loadAll() {
   allSigs = {};
   sigs.forEach(s => { if(!allSigs[s.pilot_id]) allSigs[s.pilot_id]={}; allSigs[s.pilot_id][s.doc_id]=s; });
   allDR = await sb('double_roulages?select=*') || [];
-  allAlerts = await sb(`alerts?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || [];
-  allSessions = await sb(`sessions_planning?event_id=eq.${eventData.id}&select=*&order=sort_order.asc,start_time.asc`) || [];
-  allIncidents = await sb(`incidents?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || [];
+  // New v5 tables (fault-tolerant if migration not yet applied)
+  try { allAlerts = await sb(`alerts?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || []; } catch(e) { allAlerts=[]; }
+  try { allSessions = await sb(`sessions_planning?event_id=eq.${eventData.id}&select=*&order=sort_order.asc,start_time.asc`) || []; } catch(e) { allSessions=[]; }
+  try { allIncidents = await sb(`incidents?event_id=eq.${eventData.id}&select=*&order=created_at.desc`) || []; } catch(e) { allIncidents=[]; }
 }
 
 function pilotSigs(p) { return allSigs[p.id] || {}; }
@@ -2897,20 +2898,20 @@ function editSession(id){
 
 async function saveSession(){
   const msgEl=document.getElementById('ms-msg');
-  const data={
-    event_id:eventData.id,
-    day:document.getElementById('ms-day').value,
-    category:document.getElementById('ms-category').value,
-    start_time:document.getElementById('ms-start').value,
-    end_time:document.getElementById('ms-end').value,
-    notes:document.getElementById('ms-notes').value.trim(),
-    sort_order:allSessions.filter(s=>s.day===document.getElementById('ms-day').value).length
-  };
-  if(!data.event_id){if(msgEl)msgEl.innerHTML='<span style="color:var(--accent)">❌ Aucun événement configuré</span>';return;}
-  if(!data.start_time||!data.end_time){if(msgEl)msgEl.innerHTML='<span style="color:var(--accent)">❌ Heures requises</span>';return;}
-
-  const editId=document.getElementById('ms-edit-id').value;
   try{
+    const data={
+      event_id:eventData.id,
+      day:document.getElementById('ms-day').value,
+      category:document.getElementById('ms-category').value,
+      start_time:document.getElementById('ms-start').value,
+      end_time:document.getElementById('ms-end').value,
+      notes:document.getElementById('ms-notes').value.trim(),
+      sort_order:allSessions.filter(s=>s.day===document.getElementById('ms-day').value).length
+    };
+    if(!data.event_id){alert('❌ Aucun événement configuré. Allez dans Paramètres pour en créer un.');return;}
+    if(!data.start_time||!data.end_time){alert('❌ Veuillez renseigner les heures.');return;}
+
+    const editId=document.getElementById('ms-edit-id').value;
     if(editId){
       await sb(`sessions_planning?id=eq.${editId}`,{method:'PATCH',body:JSON.stringify(data)});
       const s=allSessions.find(x=>x.id===editId);if(s)Object.assign(s,data);
@@ -2920,8 +2921,9 @@ async function saveSession(){
     }
     closeModal('modal-session');renderPlanning();
   }catch(e){
-    if(msgEl)msgEl.innerHTML='<span style="color:var(--accent)">❌ '+e.message+'</span>';
-    else alert('Erreur: '+e.message);
+    const errMsg='❌ Erreur : '+e.message;
+    alert(errMsg);
+    if(msgEl)msgEl.innerHTML=`<span style="color:var(--accent)">${errMsg}</span>`;
   }
 }
 
@@ -2971,8 +2973,14 @@ async function sendCustomAlert(){
   const title=document.getElementById('flag-custom-title').value.trim();
   const message=document.getElementById('flag-custom-msg').value.trim();
   if(!title){alert('Saisissez un titre.');return;}
+  // Deactivate previous alerts
+  const active=allAlerts.filter(a=>a.active);
+  for(const a of active){
+    await sb(`alerts?id=eq.${a.id}`,{method:'PATCH',body:JSON.stringify({active:false,ended_at:new Date().toISOString()})});
+    a.active=false;
+  }
   const res=await sb('alerts',{method:'POST',body:JSON.stringify({
-    event_id:eventData.id,type:'info',title:`📢 ${title}`,message,active:false
+    event_id:eventData.id,type:'info',title:`📢 ${title}`,message,active:true
   })});
   if(res&&res[0])allAlerts.unshift(res[0]);
   document.getElementById('flag-custom-title').value='';
