@@ -3162,8 +3162,10 @@ function renderTV(){
   const activeAlert=allAlerts.find(a=>a.active);
   const flagColors={'red_flag':'#e63946','yellow_flag':'#f39c12','green_flag':'#2ecc71','session_end':'#3498db','info':'#9b59b6'};
 
-  // Active session
-  const activeSess=allSessions.find(s=>s.day===day&&s.status==='active');
+  // Active session — only if today is actually the right day
+  const realDay=new Date().getDay(); // 0=dim, 6=sam
+  const isEventDay=(day==='samedi'&&realDay===6)||(day==='dimanche'&&realDay===0);
+  const activeSess=isEventDay?allSessions.find(s=>s.day===day&&s.status==='active'):null;
 
   // Category counts
   const catData={};
