@@ -115,7 +115,7 @@ body::before {
   font-size: 18px;
 }
 
-.sidebar-nav { padding: 16px 12px; flex: 1; }
+.sidebar-nav { padding: 16px 12px; flex: 1; overflow-y: auto; }
 
 .nav-item {
   display: flex;
@@ -188,7 +188,86 @@ body::before {
   .sidebar.open { transform: translateX(0); }
   .overlay.open { display: block; }
   .mobile-header { display: flex; }
-  .main { margin-left: 0; padding: 72px 16px 16px; }
+  .main { margin-left: 0; padding: 72px 12px 16px; }
+
+  /* Typography */
+  .page-title { font-size: 22px; }
+  .page-subtitle { font-size: 13px; margin-bottom: 16px; }
+
+  /* Cards */
+  .card { padding: 14px; margin-bottom: 12px; }
+  .card-header { gap: 8px; }
+  .card-title { font-size: 16px; }
+
+  /* Stats grid */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat-card { padding: 12px 14px; }
+  .stat-value { font-size: 28px; }
+  .stat-label { font-size: 11px; letter-spacing: 0.5px; }
+
+  /* Buttons */
+  .btn { padding: 8px 14px; font-size: 13px; gap: 6px; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-lg { padding: 12px 20px; font-size: 15px; }
+
+  /* Toolbar */
+  .toolbar { flex-wrap: wrap; gap: 6px; }
+
+  /* Tables */
+  th { padding: 8px 10px; font-size: 11px; }
+  td { padding: 8px 10px; font-size: 13px; }
+
+  /* Modals */
+  .modal { padding: 20px; margin: 8px; border-radius: 12px; }
+  .modal-lg { max-width: 100%; }
+  .modal-title { font-size: 20px; }
+
+  /* Check-in */
+  .checkin-search { padding: 20px 8px; }
+  .checkin-search .input { font-size: 18px; padding: 14px 16px; }
+  .checkin-pilot-card { padding: 10px 12px; }
+  .pilot-number { font-size: 18px; width: 40px; height: 40px; }
+  .pilot-name { font-size: 14px; }
+  .pilot-cat { font-size: 12px; }
+
+  /* Day selector */
+  .day-selector { gap: 6px; }
+  .day-btn { padding: 6px 14px; font-size: 13px; }
+
+  /* Field rows */
+  .field-row { grid-template-columns: 1fr; gap: 8px; }
+  .grid-2 { grid-template-columns: 1fr; }
+
+  /* Inputs */
+  .input, .select { font-size: 16px; padding: 10px 12px; }
+  .search-input { max-width: 100% !important; }
+
+  /* Login */
+  #login-screen { padding: 16px; }
+
+  /* Tombola */
+  #tombola-input { font-size: 20px !important; padding: 16px !important; }
+  #draw-num { font-size: 48px !important; }
+
+  /* Progress bars */
+  .progress-bar { height: 4px; }
+
+  /* Badges */
+  .badge { font-size: 11px; padding: 2px 8px; }
+
+  /* Success overlay */
+  .success-check { font-size: 80px; }
+  .success-text { font-size: 24px; }
+}
+
+@media (max-width: 380px) {
+  .stats-grid { grid-template-columns: 1fr; }
+  .stat-value { font-size: 24px; }
+  .main { padding: 64px 8px 12px; }
+  .card { padding: 12px; }
+  th { padding: 6px 6px; font-size: 10px; }
+  td { padding: 6px 6px; font-size: 12px; }
+  .btn-sm { padding: 4px 8px; font-size: 11px; }
 }
 
 /* === TYPOGRAPHY === */
@@ -342,7 +421,7 @@ body::before {
 }
 
 /* === TABLE === */
-.table-wrap { overflow-x: auto; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 table {
   width: 100%;
@@ -674,7 +753,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 /* === RESPONSIVE GRID === */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
 
 /* === SCROLLBAR === */
 ::-webkit-scrollbar { width: 8px; }
@@ -720,7 +798,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 /* Extra styles for v4 */
 .pdf-viewer-frame { width:100%; height:55vh; border:1px solid var(--border); border-radius:var(--radius); background:#fff; }
 .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-@media (max-width:600px) { .field-row { grid-template-columns:1fr; } }
 .link-box { display:flex; align-items:center; gap:8px; margin:4px 0; }
 .link-input { flex:1; padding:6px 10px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-primary); font-size:12px; font-family:monospace; }
 .config-banner { background:var(--warning-bg); border:1px solid rgba(243,156,18,0.3); border-radius:var(--radius-lg); padding:20px; margin-bottom:20px; }
